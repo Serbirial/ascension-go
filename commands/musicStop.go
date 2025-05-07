@@ -28,8 +28,7 @@ func stopCommand(ctx *models.Context, args map[string]string) {
 	}
 
 	ctx.Send("Sending stop...")
-	channel := ctx.Client.StopChannel
-	channel <- true
+	ctx.Client.StopChannel <- true
 	ctx.Send("Done.")
 
 	return
