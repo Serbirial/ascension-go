@@ -63,10 +63,10 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	ctx.Client.SongQueue = append(ctx.Client.SongQueue, songInfo)
 
 	// ctx.Client.Session.UpdateCustomStatus("Playing: " + file)
-	var channel = make(chan bool)
-	ctx.Client.StopChannel = channel
 	// Nothing is playing: start playing song instantly.
 	if !ctx.Client.IsPlaying {
+		var channel = make(chan bool)
+		ctx.Client.StopChannel = channel
 		ctx.Send("Playing: " + songInfo.Title)
 		handlers.PlayAudioFile(voice, ctx, songInfo.FilePath, channel)
 	}
