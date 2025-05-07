@@ -10,6 +10,8 @@ github.com/serbirial/goutubedl v0.0.0-20250501160909-e491034be88d h1:3pUDedep2DE
 github.com/serbirial/goutubedl v0.0.0-20250501160909-e491034be88d/go.mod h1:5KXd5tImdbmz4JoVhePtbIokCwAfEhUVVx3WLHmjYuw=
 github.com/serbirial/goutubedl v0.0.0-20250507165209-6776a45806ed h1:eCWAPsdNEk0GlC4hO4anNaC72zR9stFZnZ4YQmICC1w=
 github.com/serbirial/goutubedl v0.0.0-20250507165209-6776a45806ed/go.mod h1:9pjI0xYZt6vGgq5zszEgExVlAnMBiKEuXfHYEefDQpw=
+github.com/serbirial/goutubedl v0.0.0-20250507180029-8a1ebcd5bcc3 h1:pAyYqr6YAqjl5jElcyACbH6uhj288IOu5iwvzm3XbqQ=
+github.com/serbirial/goutubedl v0.0.0-20250507180029-8a1ebcd5bcc3/go.mod h1:XU2EFT+E3Z6v9IkhB+3SKk/EGkueGFAyeRmKNy5RA3E=
 github.com/wader/osleaktest v0.0.0-20191111175233-f643b0fed071 h1:QkrG4Zr5OVFuC9aaMPmFI0ibfhBZlAgtzDYWfu7tqQk=
 github.com/wader/osleaktest v0.0.0-20191111175233-f643b0fed071/go.mod h1:XD6emOFPHVzb0+qQpiNOdPL2XZ0SRUM0N5JHuq6OmXo=
 golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b/go.mod h1:T9bdIzuCu7OtxOm1hfPfRQxPLYneinmdGuTeoZ9dtd4=
