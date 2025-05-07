@@ -25,24 +25,31 @@ var PlayCommand = models.Command{
 }
 
 func playCommand(ctx *models.Context, args map[string]string) {
+	err := checks.UserInVoice(ctx)
+	if err != nil {
+		ctx.Send("You are not in a Voice Channel.")
+		return
+	}
 	// Connect to voice channel.
 	// NOTE: Setting mute to false, deaf to true.
-	err := checks.InVoice(ctx)
+	err := checks.BotInVoice(ctx)
 	if err != nil {
-		_, err := ctx.Client.Session.ChannelVoiceJoin(ctx.GuildID, ctx.ChannelID, false, true)
+		channelID, err := checks.GetUserVoiceChannel(ctx)
+		_, err = ctx.Client.Session.ChannelVoiceJoin(ctx.GuildID, channelID, false, true)
 		if err != nil {
 			fmt.Println(err)
 			ctx.Send("Error joining the voice channel")
 			return
 		}
 	}
-	voice, err := checks.GetVoiceChannel(ctx)
+	voice, err := checks.GetBotVoiceChannel(ctx)
 	if err != nil {
 		fmt.Println(err)
 		ctx.Send("Error getting the voice channel")
 		return
 	}
 
+	// Download the youtube URL to a file
 	filepath, metadata, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
 	if err != nil {
 		fmt.Println(err)
@@ -50,8 +57,8 @@ func playCommand(ctx *models.Context, args map[string]string) {
 		return
 	}
 
+	// Add the song to the queue
 	var songInfo models.SongInfo = models.SongInfo{FilePath: filepath, MetaData: &metadata}
-
 	ctx.Client.SongQueue = append(ctx.Client.SongQueue, songInfo)
 
 	// ctx.Client.Session.UpdateCustomStatus("Playing: " + file)
