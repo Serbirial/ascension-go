@@ -14,7 +14,7 @@ import (
 const AUDIO_FOLDER string = "audio_temp"
 
 func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, error) {
-	result, err := goutubedl.New(context.Background(), "https://www.youtube.com/watch?v=jgVhBThJdXc", goutubedl.Options{})
+	result, err := goutubedl.New(context.Background(), url, goutubedl.Options{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -33,6 +33,7 @@ func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, erro
 	}
 
 	f, err := os.Create(filePath)
+	fmt.Println(filePath)
 	if err != nil {
 		log.Fatal(err)
 	}
