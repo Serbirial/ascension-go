@@ -166,6 +166,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 	//when stop is sent, kill ffmpeg
 	go func() {
 		<-stop
+		fmt.Println("[Music] Stop signal sent")
 		// Remove current song from queue
 		var temp []*models.SongInfo
 		for i := 0; i < len(ctx.Client.SongQueue); i++ {
@@ -177,6 +178,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 		ctx.Client.SongQueue = temp
 		// Kill ffmpeg
 		err = run.Process.Kill()
+		fmt.Println("[Music] FFMPEG killed")
 	}()
 
 	// Send "speaking" packet over the voice websocket
