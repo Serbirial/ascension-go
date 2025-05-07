@@ -173,7 +173,9 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 				temp = append(temp, ctx.Client.SongQueue[i])
 			}
 		}
+		// Replace queue with updated one
 		ctx.Client.SongQueue = temp
+		// Kill ffmpeg
 		err = run.Process.Kill()
 	}()
 

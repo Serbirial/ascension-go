@@ -58,7 +58,7 @@ func playCommand(ctx *models.Context, args map[string]string) {
 
 	// Nothing is playing: start playing song instantly.
 	if !ctx.Client.IsPlaying {
-		handlers.PlayAudioFile(voice, filepath, ctx.Client.StopChannel)
+		handlers.PlayAudioFile(voice, ctx, filepath, ctx.Client.StopChannel)
 	}
 
 	// Close connections
