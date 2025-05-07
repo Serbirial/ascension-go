@@ -18,8 +18,7 @@ const (
 		discordgo.IntentsGuildMessages |
 		discordgo.IntentsGuildPresences |
 		discordgo.IntentsGuildVoiceStates |
-		discordgo.IntentsGuilds |
-		discordgo.IntentsGuildVoiceStates
+		discordgo.IntentsGuilds
 )
 
 type LanaBot struct {
