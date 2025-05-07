@@ -13,16 +13,19 @@ import (
 func DownloadYoutubeURLToFile(url string, folder string) (string, goutubedl.Info, error) {
 	result, err := goutubedl.New(context.Background(), url, goutubedl.Options{})
 	if err != nil {
+		fmt.Println(err)
 		return "", goutubedl.Info{}, errors.New("Error while initializing goutube")
 	}
 	downloadResult, err := result.Download(context.Background(), "best")
 	if err != nil {
+		fmt.Println(err)
 		return "", goutubedl.Info{}, errors.New("Error while downloading url")
 	}
 	defer downloadResult.Close()
 	var filename string = fmt.Sprintf("%s/%s", folder, result.Info.Title)
 	f, err := os.Create(filename)
 	if err != nil {
+		fmt.Println(err)
 		return "", goutubedl.Info{}, errors.New("Error while creating output")
 	}
 

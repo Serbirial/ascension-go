@@ -23,7 +23,7 @@ func stopCommand(ctx *models.Context, args map[string]string) {
 	// NOTE: Setting mute to false, deaf to true.
 	err := checks.UserInVoice(ctx)
 	if err != nil {
-		ctx.Send("Not in voice or playing.")
+		ctx.Send("You are not in a Voice Channel.")
 		return
 	}
 
