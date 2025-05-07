@@ -12,4 +12,5 @@ var AllCommands = map[string]models.Command{
 	PlayCommand.Name:      PlayCommand,
 	StopCommand.Name:      StopCommand,
 	MusicInfoCommand.Name: MusicInfoCommand,
+	JoinCommand.Name:      JoinCommand,
 }
