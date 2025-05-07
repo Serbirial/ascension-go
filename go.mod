@@ -14,4 +14,4 @@ require (
 	golang.org/x/sys v0.33.0 // indirect
 )
 
-replace github.com/wader/goutubedl v0.0.0-20250501160909-e491034be88d => github.com/serbirial/goutubedl v0.0.0-20250501160909-e491034be88d
+replace github.com/wader/goutubedl v0.0.0-20250501160909-e491034be88d => github.com/serbirial/goutubedl v1.0.0
