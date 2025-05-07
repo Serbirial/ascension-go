@@ -3,19 +3,15 @@ package commands
 import (
 	"gobot/models"
 	"gobot/utils/checks"
+	"time"
 )
 
 var StopCommand = models.Command{
-	Name:          "stop",
-	Desc:          "Stops the currently playing song.",
-	Aliases:       []string{"pl"},
-	Args:          nil,
-	Subcommands:   []string{""},
-	Parentcommand: "none",
-	Checks:        []func(*models.Context) error{},
-	Callback:      stopCommand,
-	Nsfw:          false,
-	Endpoint:      "string",
+	Name:     "stop",
+	Desc:     "Stops the currently playing song.",
+	Aliases:  []string{"pl"},
+	Checks:   []func(*models.Context) error{},
+	Callback: stopCommand,
 }
 
 func stopCommand(ctx *models.Context, args map[string]string) {
@@ -28,8 +24,13 @@ func stopCommand(ctx *models.Context, args map[string]string) {
 	}
 
 	ctx.Send("Sending stop...")
-	ctx.Client.StopChannel <- true
-	ctx.Send("Done.")
+	select {
+	case ctx.Client.StopChannel <- true:
+		ctx.Send("Done.")
+		return
 
-	return
+	case <-time.After(5 * time.Second):
+		ctx.Send("Took too long to quit player.")
+		return
+	}
 }

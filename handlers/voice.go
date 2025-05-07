@@ -210,7 +210,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 		select {
 		case send <- audiobuf:
 		case <-close:
-			return
+			fmt.Println("[Music] End of function")
 		}
 	}
 }

@@ -8,16 +8,11 @@ import (
 )
 
 var JoinCommand = models.Command{
-	Name:          "join",
-	Desc:          "Joins the voice channel.",
-	Aliases:       []string{"j"},
-	Args:          nil,
-	Subcommands:   []string{""},
-	Parentcommand: "none",
-	Checks:        []func(*models.Context) error{},
-	Callback:      playCommand,
-	Nsfw:          false,
-	Endpoint:      "string",
+	Name:     "join",
+	Desc:     "Joins the voice channel.",
+	Aliases:  []string{"j"},
+	Checks:   []func(*models.Context) error{},
+	Callback: playCommand,
 }
 
 func joinCommand(ctx *models.Context, args map[string]string) {

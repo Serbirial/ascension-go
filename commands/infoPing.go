@@ -6,16 +6,10 @@ import (
 )
 
 var PingCommand = models.Command{
-	Name:          "ping",
-	Desc:          "Shows the bots ping.",
-	Aliases:       []string{"p"},
-	Args:          nil,
-	Subcommands:   []string{""},
-	Parentcommand: "none",
-	Checks:        []func(*models.Context) error{},
-	Callback:      pingCommand,
-	Nsfw:          false,
-	Endpoint:      "string",
+	Name:     "ping",
+	Desc:     "Shows the bots ping.",
+	Aliases:  []string{"p"},
+	Callback: pingCommand,
 }
 
 func pingCommand(ctx *models.Context, args map[string]string) {

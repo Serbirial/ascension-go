@@ -12,16 +12,12 @@ import (
 const AUDIO_FOLDER string = "audio_temp"
 
 var PlayCommand = models.Command{
-	Name:          "play",
-	Desc:          "Plays a song from youtube.",
-	Aliases:       []string{"pl"},
-	Args:          map[string]string{"url": "The name or link of the song you want to play."},
-	Subcommands:   []string{""},
-	Parentcommand: "none",
-	Checks:        []func(*models.Context) error{},
-	Callback:      playCommand,
-	Nsfw:          false,
-	Endpoint:      "string",
+	Name:     "play",
+	Desc:     "Plays a song from youtube.",
+	Aliases:  []string{"pl"},
+	Args:     map[string]string{"url": "The name or link of the song you want to play."},
+	Checks:   []func(*models.Context) error{},
+	Callback: playCommand,
 }
 
 func playCommand(ctx *models.Context, args map[string]string) {
@@ -68,6 +64,7 @@ func playCommand(ctx *models.Context, args map[string]string) {
 		var channel = make(chan bool)
 		ctx.Client.StopChannel = channel
 		ctx.Send("Playing: " + songInfo.Title)
+		ctx.Client.IsPlaying = true
 		handlers.PlayAudioFile(voice, ctx, songInfo.FilePath, channel)
 	}
 

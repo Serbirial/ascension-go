@@ -6,16 +6,11 @@ import (
 )
 
 var MusicInfoCommand = models.Command{
-	Name:          "nowplaying",
-	Desc:          "Shows the info about the currently playing song.",
-	Aliases:       []string{"np"},
-	Args:          nil,
-	Subcommands:   []string{""},
-	Parentcommand: "none",
-	Checks:        []func(*models.Context) error{},
-	Callback:      musicInfoCommand,
-	Nsfw:          false,
-	Endpoint:      "string",
+	Name:     "nowplaying",
+	Desc:     "Shows the info about the currently playing song.",
+	Aliases:  []string{"np"},
+	Checks:   []func(*models.Context) error{},
+	Callback: musicInfoCommand,
 }
 
 func musicInfoCommand(ctx *models.Context, args map[string]string) {

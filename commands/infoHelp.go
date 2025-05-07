@@ -6,16 +6,12 @@ import (
 )
 
 var HelpCommand = models.Command{
-	Name:          "help",
-	Desc:          "List all commands.",
-	Aliases:       []string{"h"},
-	Args:          map[string]string{"command_name": "The name of the command you want the help message for."},
-	Subcommands:   []string{""},
-	Parentcommand: "none",
-	Checks:        []func(*models.Context) error{},
-	Callback:      helpCommand,
-	Nsfw:          false,
-	Endpoint:      "string",
+	Name:     "help",
+	Desc:     "List all commands.",
+	Aliases:  []string{"h"},
+	Args:     map[string]string{"command_name": "The name of the command you want the help message for."},
+	Checks:   []func(*models.Context) error{},
+	Callback: helpCommand,
 }
 
 func helpCommand(ctx *models.Context, args map[string]string) {
