@@ -22,14 +22,16 @@ const (
 )
 
 type LanaBot struct {
-	Session     *discordgo.Session
+	Session *discordgo.Session
+
 	StopChannel chan bool
 	SongQueue   []*SongInfo
-	IsPlaying   bool
-	Token       string
-	Owners      []int
-	Prefix      string
-	Commands    map[string]Command
+
+	IsPlaying bool
+	Token     string
+	Owners    []int
+	Prefix    string
+	Commands  map[string]Command
 }
 
 func (bot LanaBot) matchArgsToCommand(ctx *Context, argsRaw string) map[string]string {
