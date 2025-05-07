@@ -16,7 +16,7 @@ const AUDIO_FOLDER string = "audio_temp"
 func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, error) {
 	goutubeOptions := new(goutubedl.Options)
 	goutubeOptions.DownloadThumbnail = false
-	result, err := goutubedl.New(context.Background(), url)
+	result, err := goutubedl.New(context.Background(), url, *goutubeOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
