@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/wader/goutubedl"
+	"github.com/serbirial/goutubedl"
 )
 
 const AUDIO_FOLDER string = "audio_temp"
