@@ -18,7 +18,10 @@ func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, erro
 	if err != nil {
 		log.Fatal(err)
 	}
-	downloadResult, err := result.Download(context.Background(), "")
+	downloadOptions := new(goutubedl.DownloadOptions)
+	downloadOptions.DownloadAudioOnly = true
+	downloadOptions.AudioFormats = "mp3"
+	downloadResult, err := result.DownloadWithOptions(context.Background(), *downloadOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
