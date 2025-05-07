@@ -30,7 +30,7 @@ func main() {
 	var songQueue []*models.SongInfo
 	var isPlaying bool = false
 
-	var Bot = models.LanaBot{Session: session, StopChannel: make(chan bool), SongQueue: songQueue, IsPlaying: isPlaying, Token: token, Owners: owners, Prefix: prefix, Commands: commandList}
+	var Bot = models.LanaBot{Session: session, StopChannel: make(chan bool, 1), SongQueue: songQueue, IsPlaying: isPlaying, Token: token, Owners: owners, Prefix: prefix, Commands: commandList}
 	Bot.AddCommands(commands.AllCommands)
 	session.Identify.Intents = models.Intents
 
