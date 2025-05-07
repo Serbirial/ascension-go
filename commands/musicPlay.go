@@ -32,7 +32,7 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	}
 	// Connect to voice channel.
 	// NOTE: Setting mute to false, deaf to true.
-	err := checks.BotInVoice(ctx)
+	err = checks.BotInVoice(ctx)
 	if err != nil {
 		channelID, err := checks.GetUserVoiceChannel(ctx)
 		_, err = ctx.Client.Session.ChannelVoiceJoin(ctx.GuildID, channelID, false, true)

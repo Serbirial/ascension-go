@@ -21,9 +21,9 @@ var MusicInfoCommand = models.Command{
 func musicInfoCommand(ctx *models.Context, args map[string]string) {
 	// Connect to voice channel.
 	// NOTE: Setting mute to false, deaf to true.
-	err := checks.InVoice(ctx)
+	err := checks.UserInVoice(ctx)
 	if err != nil {
-		ctx.Send("Not in voice or playing.")
+		ctx.Send("You are not in a Voice Channel.")
 		return
 	}
 
