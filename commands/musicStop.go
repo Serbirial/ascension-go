@@ -13,7 +13,7 @@ var StopCommand = models.Command{
 	Subcommands:   []string{""},
 	Parentcommand: "none",
 	Checks:        []func(*models.Context) error{},
-	Callback:      playCommand,
+	Callback:      stopCommand,
 	Nsfw:          false,
 	Endpoint:      "string",
 }
