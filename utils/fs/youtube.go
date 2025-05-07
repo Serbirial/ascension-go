@@ -1,35 +1,51 @@
 package fs
 
 import (
-	"context"
-	"errors"
 	"fmt"
+	"gobot/models"
 	"io"
 	"os"
 
-	"github.com/wader/goutubedl"
+	"github.com/kkdai/youtube/v2"
 )
 
-func DownloadYoutubeURLToFile(url string, folder string) (string, goutubedl.Info, error) {
-	result, err := goutubedl.New(context.Background(), url, goutubedl.Options{})
+const AUDIO_FOLDER string = "audio_temp"
+
+func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, error) {
+
+	client := youtube.Client{}
+
+	video, err := client.GetVideo(url)
 	if err != nil {
-		fmt.Println(err)
-		return "", goutubedl.Info{}, errors.New("Error while initializing goutube")
-	}
-	downloadResult, err := result.Download(context.Background(), "best")
-	if err != nil {
-		fmt.Println(err)
-		return "", goutubedl.Info{}, errors.New("Error while downloading url")
-	}
-	defer downloadResult.Close()
-	var filename string = fmt.Sprintf("%s/%s", folder, result.Info.Title)
-	f, err := os.Create(filename)
-	if err != nil {
-		fmt.Println(err)
-		return "", goutubedl.Info{}, errors.New("Error while creating output")
+		panic(err)
 	}
 
-	defer f.Close()
-	io.Copy(f, downloadResult)
-	return filename, result.Info, nil
+	filePath := fmt.Sprintf("%s/%s", AUDIO_FOLDER, video.Title)
+
+	songInfo := models.SongInfo{
+		FilePath: filePath,
+
+		Title:    video.Title,
+		Uploader: video.Author,
+	}
+
+	formats := video.Formats.WithAudioChannels() // only get videos with audio
+	stream, _, err := client.GetStream(video, &formats[0])
+	if err != nil {
+		panic(err)
+	}
+	defer stream.Close()
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, stream)
+	if err != nil {
+		panic(err)
+	}
+
+	return &songInfo, nil
 }

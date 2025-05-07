@@ -24,7 +24,7 @@ const (
 type LanaBot struct {
 	Session     *discordgo.Session
 	StopChannel chan bool
-	SongQueue   []SongInfo
+	SongQueue   []*SongInfo
 	IsPlaying   bool
 	Token       string
 	Owners      []int
