@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"gobot/models"
 	"io"
-	"os"
 	"os/exec"
 	"strconv"
 	"sync"
@@ -41,18 +40,6 @@ var (
 	mu          sync.Mutex
 )
 
-// OnError gets called by dgvoice when an error is encountered.
-// By default logs to STDERR
-var OnError = func(str string, err error) {
-	prefix := "dgVoice: " + str
-
-	if err != nil {
-		os.Stderr.WriteString(prefix + ": " + err.Error())
-	} else {
-		os.Stderr.WriteString(prefix)
-	}
-}
-
 // SendPCM will receive on the provied channel encode
 // received PCM data into Opus then send that to Discordgo
 func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
@@ -65,7 +52,7 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 	opusEncoder, err = gopus.NewEncoder(frameRate, channels, gopus.Audio)
 
 	if err != nil {
-		OnError("NewEncoder Error", err)
+		fmt.Println("NewEncoder Error", err)
 		return
 	}
 
@@ -74,19 +61,19 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 		// read pcm from chan, exit if channel is closed.
 		recv, ok := <-pcm
 		if !ok {
-			OnError("PCM Channel closed", nil)
+			fmt.Println("PCM Channel closed")
 			return
 		}
 
 		// try encoding pcm frame with Opus
 		opus, err := opusEncoder.Encode(recv, frameSize, maxBytes)
 		if err != nil {
-			OnError("Encoding Error", err)
+			fmt.Println("Encoding Error")
 			return
 		}
 
 		if v.Ready == false || v.OpusSend == nil {
-			// OnError(fmt.Sprintf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
+			// fmt.Println(fmt.Sprintf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
 			// Sending errors here might not be suited
 			return
 		}
@@ -106,7 +93,7 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 
 	for {
 		if v.Ready == false || v.OpusRecv == nil {
-			OnError(fmt.Sprintf("Discordgo not to receive opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
+			fmt.Println(fmt.Sprintf("Discordgo not to receive opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
 			return
 		}
 
@@ -123,14 +110,14 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 		if !ok {
 			speakers[p.SSRC], err = gopus.NewDecoder(48000, 2)
 			if err != nil {
-				OnError("error creating opus decoder", err)
+				fmt.Println("error creating opus decoder")
 				continue
 			}
 		}
 
 		p.PCM, err = speakers[p.SSRC].Decode(p.Opus, 960, false)
 		if err != nil {
-			OnError("Error decoding opus data", err)
+			fmt.Println("Error decoding opus data")
 			continue
 		}
 
@@ -147,7 +134,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 	run := exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
 	ffmpegout, err := run.StdoutPipe()
 	if err != nil {
-		OnError("StdoutPipe Error", err)
+		fmt.Println("StdoutPipe Error")
 		return
 	}
 
@@ -156,12 +143,12 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 	// Starts the ffmpeg command
 	err = run.Start()
 	if err != nil {
-		OnError("RunStart Error", err)
+		fmt.Println("RunStart Error")
 		return
 	}
 
 	// prevent memory leak from residual ffmpeg streams
-	defer run.Process.Kill()
+	//defer run.Process.Kill()
 
 	//when stop is sent, kill ffmpeg
 	go func() {
@@ -184,14 +171,14 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 	// Send "speaking" packet over the voice websocket
 	err = v.Speaking(true)
 	if err != nil {
-		OnError("Couldn't set speaking", err)
+		fmt.Println("Couldn't set speaking")
 	}
 
 	// Send not "speaking" packet over the websocket when we finish
 	defer func() {
 		err := v.Speaking(false)
 		if err != nil {
-			OnError("Couldn't stop speaking", err)
+			fmt.Println("Couldn't stop speaking")
 		}
 	}()
 
@@ -212,7 +199,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 			return
 		}
 		if err != nil {
-			OnError("error reading from ffmpeg stdout", err)
+			fmt.Println("error reading from ffmpeg stdout")
 			return
 		}
 
