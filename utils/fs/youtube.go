@@ -18,7 +18,7 @@ func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, erro
 	if err != nil {
 		log.Fatal(err)
 	}
-	downloadResult, err := result.Download(context.Background(), "best")
+	downloadResult, err := result.Download(context.Background(), "")
 	if err != nil {
 		log.Fatal(err)
 	}
