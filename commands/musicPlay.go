@@ -43,8 +43,6 @@ func playCommand(ctx *models.Context, args map[string]string) {
 		return
 	}
 
-	fmt.Println("Reading Music Folder: ", AUDIO_FOLDER)
-
 	filepath, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
 	if err != nil {
 		fmt.Println(err)
