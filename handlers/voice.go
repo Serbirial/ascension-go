@@ -167,7 +167,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 	go func() {
 		<-stop
 		// Remove current song from queue
-		var temp []models.SongInfo
+		var temp []*models.SongInfo
 		for i := 0; i < len(ctx.Client.SongQueue); i++ {
 			if i >= 1 {
 				temp = append(temp, ctx.Client.SongQueue[i])
