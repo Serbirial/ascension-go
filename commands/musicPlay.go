@@ -43,16 +43,23 @@ func playCommand(ctx *models.Context, args map[string]string) {
 		return
 	}
 
-	filepath, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
+	filepath, metadata, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
 	if err != nil {
 		fmt.Println(err)
 		ctx.Send("Error with DownloadURL function.")
 		return
 	}
 
+	var songInfo models.SongInfo = models.SongInfo{FilePath: filepath, MetaData: &metadata}
+
+	ctx.Client.SongQueue = append(ctx.Client.SongQueue, songInfo)
+
 	// ctx.Client.Session.UpdateCustomStatus("Playing: " + file)
 
-	handlers.PlayAudioFile(voice, filepath, ctx.Client.StopChannel)
+	// Nothing is playing: start playing song instantly.
+	if !ctx.Client.IsPlaying {
+		handlers.PlayAudioFile(voice, filepath, ctx.Client.StopChannel)
+	}
 
 	// Close connections
 	// voice.Close()

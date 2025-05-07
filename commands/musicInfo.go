@@ -5,20 +5,20 @@ import (
 	"gobot/utils/checks"
 )
 
-var StopCommand = models.Command{
-	Name:          "stop",
-	Desc:          "Stops the currently playing song.",
-	Aliases:       []string{"pl"},
+var MusicInfoCommand = models.Command{
+	Name:          "nowplaying",
+	Desc:          "Shows the info about the currently playing song.",
+	Aliases:       []string{"np"},
 	Args:          nil,
 	Subcommands:   []string{""},
 	Parentcommand: "none",
 	Checks:        []func(*models.Context) error{},
-	Callback:      playCommand,
+	Callback:      musicInfoCommand,
 	Nsfw:          false,
 	Endpoint:      "string",
 }
 
-func stopCommand(ctx *models.Context, args map[string]string) {
+func musicInfoCommand(ctx *models.Context, args map[string]string) {
 	// Connect to voice channel.
 	// NOTE: Setting mute to false, deaf to true.
 	err := checks.InVoice(ctx)
@@ -27,10 +27,4 @@ func stopCommand(ctx *models.Context, args map[string]string) {
 		return
 	}
 
-	ctx.Send("Sending stop...")
-	channel := ctx.Client.StopChannel
-	channel <- true
-	ctx.Send("Done.")
-
-	return
 }
