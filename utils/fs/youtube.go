@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/serbirial/goutubedl"
 )
@@ -28,6 +29,7 @@ func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, erro
 		log.Fatal(err)
 	}
 	defer downloadResult.Close()
+	result.Info.Title = strings.Replace(result.Info.Title, "/", "", 0)
 
 	filePath := fmt.Sprintf("%s/%s", AUDIO_FOLDER, result.Info.Title)
 	songInfo := models.SongInfo{
