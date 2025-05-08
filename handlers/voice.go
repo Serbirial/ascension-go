@@ -157,8 +157,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	if len(ctx.Client.SongQueue) > 0 {
 		fmt.Println("[Music] Queue is not empty, playing next song")
 		// Play the next song
-		go playNextSongInQueue(v, ctx, stop)
-		return
+		playNextSongInQueue(v, ctx, stop)
 	} else if len(ctx.Client.SongQueue) == 0 { // Queue was empty
 		fmt.Println("[Music] Queue is empty, waiting for activity")
 		// Wait to see if activity happens
@@ -176,6 +175,12 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 // Discord voice server/channel.  voice websocket and udp socket
 // must already be setup before this will work.
 func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool) {
+	// Send "playing" message to the channel
+	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
+	// Set status
+	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
+	// Set Playing to true
+	ctx.Client.SetPlaying(true)
 
 	// Create a shell command "object" to run.
 	run := exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
@@ -225,13 +230,6 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		}
 	}()
 
-	// Send "playing" message to the channel
-	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
-	// Set status
-	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
-	// Set Playing to true
-	ctx.Client.SetPlaying(true)
-
 	send := make(chan []int16, 2)
 	defer close(send)
 
@@ -257,8 +255,6 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		select {
 		case send <- audiobuf:
 		case <-close:
-			// Do cleanup when finished
-			startCleanupProcess(v, ctx, stop)
 			return
 		}
 	}
