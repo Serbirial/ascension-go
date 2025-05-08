@@ -34,11 +34,11 @@ type LanaBot struct {
 	Commands  map[string]Command
 }
 
-func (bot LanaBot) AddToQueue(song *SongInfo) {
+func (bot *LanaBot) AddToQueue(song *SongInfo) {
 	bot.SongQueue = append(bot.SongQueue, song)
 }
 
-func (bot LanaBot) ReversePlayingBool() {
+func (bot *LanaBot) ReversePlayingBool() {
 	bot.IsPlaying = !bot.IsPlaying
 }
 
@@ -94,7 +94,7 @@ func (bot LanaBot) ProcessMessage(session *discordgo.Session, message *discordgo
 	}
 }
 
-func (bot LanaBot) AddCommands(commands map[string]Command) {
+func (bot *LanaBot) AddCommands(commands map[string]Command) {
 	for name, command := range commands {
 		fmt.Println("Adding command: " + name)
 		bot.Commands[name] = command
