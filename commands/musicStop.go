@@ -29,7 +29,7 @@ func stopCommand(ctx *models.Context, args map[string]string) {
 		ctx.Send("Done.")
 		return
 
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		ctx.Send("Took too long to quit player.")
 		return
 	}

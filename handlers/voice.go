@@ -201,6 +201,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 
 	// Send not "speaking" packet over the websocket when we finish
 	defer func() {
+		fmt.Println("[Music] Stopping speaking action")
 		err := v.Speaking(false)
 		if err != nil {
 			fmt.Println("Couldn't stop speaking")

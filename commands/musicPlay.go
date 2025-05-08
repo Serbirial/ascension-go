@@ -60,17 +60,15 @@ func playCommand(ctx *models.Context, args map[string]string) {
 
 	// If something is playing, return and do nothing after adding to queue
 	// Else if not playing: start playing song instantly.
-	if ctx.Client.IsPlaying {
+	if ctx.Client.IsPlaying == true {
+		ctx.Send("Added to Queue")
 		return
-	} else if !ctx.Client.IsPlaying {
-		var channel = make(chan bool)
-		ctx.Client.StopChannel = channel
+	} else if ctx.Client.IsPlaying == false {
 		ctx.Client.IsPlaying = true
-		handlers.PlayAudioFile(voice, ctx, songInfo, songInfo.FilePath, channel)
+		handlers.PlayAudioFile(voice, ctx, songInfo, songInfo.FilePath, ctx.Client.StopChannel)
+		return
 	}
 
 	// Close connections
 	// voice.Close()
-
-	return
 }
