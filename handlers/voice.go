@@ -147,6 +147,31 @@ func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	}
 }
 
+func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool) {
+	fmt.Println("[Music] Cleanup process started")
+	// Remove current song from queue and replace it with the updated one
+	ctx.Client.SongQueue = removeSongFromQueue(ctx)
+	// Set Playing to false
+	ctx.Client.SetPlaying(false)
+	// Check if Queue is empty
+	if len(ctx.Client.SongQueue) > 0 {
+		fmt.Println("[Music] Queue is not empty, playing next song")
+		// Play the next song
+		go playNextSongInQueue(v, ctx, stop)
+		return
+	} else if len(ctx.Client.SongQueue) == 0 { // Queue was empty
+		fmt.Println("[Music] Queue is empty, waiting for activity")
+		// Wait to see if activity happens
+		time.Sleep(60 * time.Second)
+		if len(ctx.Client.SongQueue) == 0 {
+			// No activity, Disconnect
+			fmt.Println("[Music] Disconnecting because no activity and empty queue")
+			v.Disconnect()
+			return
+		}
+	}
+}
+
 // PlayAudioFile will play the given filename to the already connected
 // Discord voice server/channel.  voice websocket and udp socket
 // must already be setup before this will work.
@@ -191,6 +216,14 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	if err != nil {
 		fmt.Println("Couldn't set speaking")
 	}
+	// Send not "speaking" packet over the websocket when we finish
+	defer func() {
+		fmt.Println("[Music] Stopping speaking action")
+		err := v.Speaking(false)
+		if err != nil {
+			fmt.Println("Couldn't stop speaking")
+		}
+	}()
 
 	// Send "playing" message to the channel
 	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
@@ -198,39 +231,6 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
 	// Set Playing to true
 	ctx.Client.SetPlaying(true)
-
-	// Main cleanup logic
-	defer func() {
-		fmt.Println("[Music] Cleanup process started")
-		// Send not "speaking" packet over the websocket while waiting
-		fmt.Println("[Music] Stopping speaking action")
-		err := v.Speaking(false)
-		if err != nil {
-			fmt.Println("Couldn't stop speaking")
-		}
-		// Remove current song from queue and replace it with the updated one
-		ctx.Client.SongQueue = removeSongFromQueue(ctx)
-		// Set Playing to false
-		ctx.Client.SetPlaying(false)
-
-		// Check if Queue is empty
-		if len(ctx.Client.SongQueue) > 0 {
-			fmt.Println("[Music] Queue is not empty, playing next song")
-			// Play the next song
-			go playNextSongInQueue(v, ctx, stop)
-			return
-		} else if len(ctx.Client.SongQueue) == 0 { // Queue was empty
-			fmt.Println("[Music] Queue is empty, waiting for activity")
-			// Wait to see if activity happens
-			time.Sleep(60 * time.Second)
-			if len(ctx.Client.SongQueue) == 0 {
-				// No activity, Disconnect
-				fmt.Println("[Music] Disconnecting because no activity and empty queue")
-				v.Disconnect()
-				return
-			}
-		}
-	}()
 
 	send := make(chan []int16, 2)
 	defer close(send)
@@ -257,7 +257,9 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		select {
 		case send <- audiobuf:
 		case <-close:
-			return
+			defer func() {
+				startCleanupProcess(v, ctx, stop)
+			}()
 		}
 	}
 }
