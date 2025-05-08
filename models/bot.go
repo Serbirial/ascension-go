@@ -34,14 +34,12 @@ type LanaBot struct {
 	Commands  map[string]Command
 }
 
-func (bot LanaBot) SetQueue(queue []*SongInfo) []*SongInfo {
+func (bot LanaBot) SetQueue(queue []*SongInfo) {
 	bot.SongQueue = queue
-	return queue
 }
 
-func (bot LanaBot) SetPlaying(playing bool) bool {
+func (bot LanaBot) SetPlaying(playing bool) {
 	bot.IsPlaying = playing
-	return playing
 }
 
 func (bot LanaBot) matchArgsToCommand(ctx *Context, argsRaw string) map[string]string {

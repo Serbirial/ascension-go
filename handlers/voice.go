@@ -6,18 +6,16 @@
 
 // Package dgvoice provides opus encoding and audio file playback for the
 // Discordgo package.
-package handlers
+package dgvoice
 
 import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
-	"gobot/models"
 	"io"
 	"os/exec"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"layeh.com/gopus"
@@ -41,16 +39,16 @@ var (
 	mu          sync.Mutex
 )
 
-func removeSongFromQueue(ctx *models.Context) []*models.SongInfo {
-	// Remove current song from queue
-	var temp []*models.SongInfo
-	for i := 0; i < len(ctx.Client.SongQueue); i++ {
-		if i >= 1 {
-			temp = append(temp, ctx.Client.SongQueue[i])
-		}
+// OnError gets called by dgvoice when an error is encountered.
+// By default logs to STDERR
+var OnError = func(str string, err error) {
+	prefix := "Music: " + str
+
+	if err != nil {
+		fmt.Println(prefix + ": " + err.Error())
+	} else {
+		fmt.Println(prefix)
 	}
-	// Replace queue with updated one
-	return temp
 }
 
 // SendPCM will receive on the provied channel encode
@@ -65,7 +63,7 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 	opusEncoder, err = gopus.NewEncoder(frameRate, channels, gopus.Audio)
 
 	if err != nil {
-		fmt.Println("NewEncoder Error", err)
+		OnError("NewEncoder Error", err)
 		return
 	}
 
@@ -74,19 +72,19 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 		// read pcm from chan, exit if channel is closed.
 		recv, ok := <-pcm
 		if !ok {
-			fmt.Println("PCM Channel closed")
+			OnError("PCM Channel closed", nil)
 			return
 		}
 
 		// try encoding pcm frame with Opus
 		opus, err := opusEncoder.Encode(recv, frameSize, maxBytes)
 		if err != nil {
-			fmt.Println("Encoding Error")
+			OnError("Encoding Error", err)
 			return
 		}
 
 		if v.Ready == false || v.OpusSend == nil {
-			// fmt.Println(fmt.Sprintf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
+			// OnError(fmt.Sprintf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
 			// Sending errors here might not be suited
 			return
 		}
@@ -106,7 +104,7 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 
 	for {
 		if v.Ready == false || v.OpusRecv == nil {
-			fmt.Println(fmt.Sprintf("Discordgo not to receive opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
+			OnError(fmt.Sprintf("Discordgo not to receive opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
 			return
 		}
 
@@ -123,14 +121,14 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 		if !ok {
 			speakers[p.SSRC], err = gopus.NewDecoder(48000, 2)
 			if err != nil {
-				fmt.Println("error creating opus decoder")
+				OnError("error creating opus decoder", err)
 				continue
 			}
 		}
 
 		p.PCM, err = speakers[p.SSRC].Decode(p.Opus, 960, false)
 		if err != nil {
-			fmt.Println("Error decoding opus data")
+			OnError("Error decoding opus data", err)
 			continue
 		}
 
@@ -138,55 +136,16 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 	}
 }
 
-// This plays the next song in the queue
-func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool) {
-	if len(ctx.Client.SongQueue) >= 1 {
-		// Get first SongInfo in Queue and play it
-		var song *models.SongInfo = ctx.Client.SongQueue[0]
-		PlayAudioFile(v, ctx, song, song.FilePath, stop)
-	}
-}
-
-func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool) {
-	fmt.Println("[Music] Cleanup process started")
-	// Remove current song from queue and replace it with the updated one
-	ctx.Client.SetQueue(removeSongFromQueue(ctx))
-	// Set Playing to false
-	ctx.Client.SetPlaying(false)
-	// Check if Queue is empty
-	if len(ctx.Client.SongQueue) > 0 {
-		fmt.Println("[Music] Queue is not empty, playing next song")
-		// Play the next song
-		playNextSongInQueue(v, ctx, stop)
-	} else if len(ctx.Client.SongQueue) == 0 { // Queue was empty
-		fmt.Println("[Music] Queue is empty, waiting for activity")
-		// Wait to see if activity happens
-		time.Sleep(60 * time.Second)
-		if len(ctx.Client.SongQueue) == 0 {
-			// No activity, Disconnect
-			fmt.Println("[Music] Disconnecting because no activity and empty queue")
-			v.Disconnect()
-			return
-		}
-	}
-}
-
 // PlayAudioFile will play the given filename to the already connected
 // Discord voice server/channel.  voice websocket and udp socket
 // must already be setup before this will work.
-func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool) {
-	// Send "playing" message to the channel
-	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
-	// Set status
-	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
-	// Set Playing to true
-	ctx.Client.SetPlaying(true)
+func PlayAudioFile(v *discordgo.VoiceConnection, filename string, stop <-chan bool) {
 
 	// Create a shell command "object" to run.
 	run := exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
 	ffmpegout, err := run.StdoutPipe()
 	if err != nil {
-		fmt.Println("StdoutPipe Error")
+		OnError("StdoutPipe Error", err)
 		return
 	}
 
@@ -195,38 +154,30 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	// Starts the ffmpeg command
 	err = run.Start()
 	if err != nil {
-		fmt.Println("RunStart Error")
+		OnError("RunStart Error", err)
 		return
 	}
 
 	// prevent memory leak from residual ffmpeg streams
-	//defer run.Process.Kill()
+	defer run.Process.Kill()
 
 	//when stop is sent, kill ffmpeg
 	go func() {
-		v := <-stop
-		fmt.Println("[Music] Received signal")
-		if v == true {
-			fmt.Println("[Music] Stop signal sent")
-			// Remove current song from queue and replace it with the updated one
-			ctx.Client.SetQueue(removeSongFromQueue(ctx))
-			// Kill ffmpeg
-			err = run.Process.Kill()
-			fmt.Println("[Music] FFMPEG killed")
-		}
+		<-stop
+		err = run.Process.Kill()
 	}()
 
 	// Send "speaking" packet over the voice websocket
 	err = v.Speaking(true)
 	if err != nil {
-		fmt.Println("Couldn't set speaking")
+		OnError("Couldn't set speaking", err)
 	}
+
 	// Send not "speaking" packet over the websocket when we finish
 	defer func() {
-		fmt.Println("[Music] Stopping speaking action")
 		err := v.Speaking(false)
 		if err != nil {
-			fmt.Println("Couldn't stop speaking")
+			OnError("Couldn't stop speaking", err)
 		}
 	}()
 
@@ -247,7 +198,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 			return
 		}
 		if err != nil {
-			fmt.Println("error reading from ffmpeg stdout")
+			OnError("error reading from ffmpeg stdout", err)
 			return
 		}
 
