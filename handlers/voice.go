@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"layeh.com/gopus"
@@ -39,6 +40,18 @@ var (
 	opusEncoder *gopus.Encoder
 	mu          sync.Mutex
 )
+
+func removeSongFromQueue(ctx *models.Context) []*models.SongInfo {
+	// Remove current song from queue
+	var temp []*models.SongInfo
+	for i := 0; i < len(ctx.Client.SongQueue); i++ {
+		if i >= 1 {
+			temp = append(temp, ctx.Client.SongQueue[i])
+		}
+	}
+	// Replace queue with updated one
+	return temp
+}
 
 // SendPCM will receive on the provied channel encode
 // received PCM data into Opus then send that to Discordgo
@@ -125,10 +138,19 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 	}
 }
 
+// This plays the next song in the queue
+func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool) {
+	if len(ctx.Client.SongQueue) >= 1 {
+		// Get first SongInfo in Queue and play it
+		var song *models.SongInfo = ctx.Client.SongQueue[0]
+		PlayAudioFile(v, ctx, song, song.FilePath, stop)
+	}
+}
+
 // PlayAudioFile will play the given filename to the already connected
 // Discord voice server/channel.  voice websocket and udp socket
 // must already be setup before this will work.
-func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename string, stop <-chan bool) {
+func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool) {
 
 	// Create a shell command "object" to run.
 	run := exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
@@ -148,7 +170,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 	}
 
 	// prevent memory leak from residual ffmpeg streams
-	//defer run.Process.Kill()
+	defer run.Process.Kill()
 
 	//when stop is sent, kill ffmpeg
 	go func() {
@@ -156,15 +178,8 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 		fmt.Println("[Music] Received signal")
 		if v == true {
 			fmt.Println("[Music] Stop signal sent")
-			// Remove current song from queue
-			var temp []*models.SongInfo
-			for i := 0; i < len(ctx.Client.SongQueue); i++ {
-				if i >= 1 {
-					temp = append(temp, ctx.Client.SongQueue[i])
-				}
-			}
-			// Replace queue with updated one
-			ctx.Client.SongQueue = temp
+			// Remove current song from queue and replace it with the updated one
+			ctx.Client.SongQueue = removeSongFromQueue(ctx)
 			// Kill ffmpeg
 			err = run.Process.Kill()
 			fmt.Println("[Music] FFMPEG killed")
@@ -176,6 +191,13 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 	if err != nil {
 		fmt.Println("Couldn't set speaking")
 	}
+
+	// Send "playing" message to the channel
+	ctx.Send("Playing: " + songInfo.Title)
+	// Set status
+	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
+	// Set Playing to true
+	ctx.Client.IsPlaying = true
 
 	// Send not "speaking" packet over the websocket when we finish
 	defer func() {
@@ -194,6 +216,31 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 		close <- true
 	}()
 
+	// Main cleanup logic
+	defer func() {
+		fmt.Println("[Music] Cleanup process started")
+		// Remove current song from queue and replace it with the updated one
+		ctx.Client.SongQueue = removeSongFromQueue(ctx)
+		// Set Playing to false
+		ctx.Client.IsPlaying = false
+
+		// Check if Queue is empty
+		if len(ctx.Client.SongQueue) >= 1 {
+			fmt.Println("[Music] Queue is not empty, playing next song")
+			// Play the next song
+			playNextSongInQueue(v, ctx, stop)
+		} else if len(ctx.Client.SongQueue) == 0 { // Queue was empty
+			fmt.Println("[Music] Queue is empty, waiting for activity")
+			// Wait to see if activity happens
+			time.Sleep(60 * time.Second)
+			if len(ctx.Client.SongQueue) == 0 {
+				// No activity, Disconnect
+				fmt.Println("[Music] Disconnecting because no activity and empty queue")
+				v.Disconnect()
+			}
+		}
+	}()
+
 	for {
 		// read data from ffmpeg stdout
 		audiobuf := make([]int16, frameSize*channels)
@@ -210,7 +257,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, filename s
 		select {
 		case send <- audiobuf:
 		case <-close:
-			fmt.Println("[Music] End of function")
+			return
 		}
 	}
 }
