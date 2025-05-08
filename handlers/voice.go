@@ -197,7 +197,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	// Set status
 	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
 	// Set Playing to true
-	ctx.Client.IsPlaying = true
+	ctx.Client.SetPlaying(true)
 
 	// Main cleanup logic
 	defer func() {
@@ -211,7 +211,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		// Remove current song from queue and replace it with the updated one
 		ctx.Client.SongQueue = removeSongFromQueue(ctx)
 		// Set Playing to false
-		ctx.Client.IsPlaying = false
+		ctx.Client.SetPlaying(false)
 
 		// Check if Queue is empty
 		if len(ctx.Client.SongQueue) > 0 {
