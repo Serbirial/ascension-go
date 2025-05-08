@@ -2,6 +2,7 @@ package commands
 
 import (
 	"gobot/models"
+	"strconv"
 )
 
 var QueueCommand = models.Command{
@@ -20,4 +21,5 @@ func queueCommand(ctx *models.Context, args map[string]string) {
 	}
 
 	ctx.Send(msg)
+	ctx.Send("IsPlaying: " + strconv.FormatBool(ctx.Client.IsPlaying))
 }

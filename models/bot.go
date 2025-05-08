@@ -38,8 +38,8 @@ func (bot *LanaBot) AddToQueue(song *SongInfo) {
 	bot.SongQueue = append(bot.SongQueue, song)
 }
 
-func (bot *LanaBot) ReversePlayingBool() {
-	bot.IsPlaying = !bot.IsPlaying
+func (bot *LanaBot) SetPlayingBool(toSet bool) {
+	bot.IsPlaying = toSet
 }
 
 func (bot LanaBot) matchArgsToCommand(ctx *Context, argsRaw string) map[string]string {

@@ -155,7 +155,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	// Remove current song from queue and replace it with the updated one
 	ctx.Client.SongQueue = removeSongFromQueue(ctx)
 	// Set Playing to false
-	ctx.Client.ReversePlayingBool()
+	ctx.Client.SetPlayingBool(false)
 	// Check if Queue is empty
 	if len(ctx.Client.SongQueue) >= 1 {
 		fmt.Println("[Music] Queue is not empty, playing next song")
@@ -182,6 +182,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
 	// Set status
 	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
+	ctx.Client.SetPlayingBool(true)
 
 	// Create a shell command "object" to run.
 	run := exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
