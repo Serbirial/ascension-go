@@ -61,10 +61,8 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	// ctx.Client.Session.UpdateCustomStatus("Playing: " + file)
 	// Nothing is playing: start playing song instantly.
 	if ctx.Client.IsPlaying == false {
-		var channel = make(chan bool)
-		ctx.Client.StopChannel = channel
 		ctx.Client.ReversePlayingBool()
-		handlers.PlayAudioFile(voice, ctx, songInfo, songInfo.FilePath, channel)
+		handlers.PlayAudioFile(voice, ctx, songInfo, songInfo.FilePath, ctx.Client.StopChannel)
 	}
 
 	// Close connections
