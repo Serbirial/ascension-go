@@ -193,7 +193,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	}
 
 	// Send "playing" message to the channel
-	ctx.Send("Playing: " + songInfo.Title)
+	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
 	// Set status
 	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
 	// Set Playing to true
