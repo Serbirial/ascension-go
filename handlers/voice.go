@@ -175,6 +175,10 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 // Discord voice server/channel.  voice websocket and udp socket
 // must already be setup before this will work.
 func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool) {
+	// Send "playing" message to the channel
+	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
+	// Set status
+	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
 
 	// Create a shell command "object" to run.
 	run := exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
@@ -201,6 +205,8 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		v := <-stop
 		fmt.Println("[Music] Received signal")
 		if v == true {
+			// Remove the 'Playing X' status
+			ctx.Client.Session.UpdateCustomStatus("")
 			fmt.Println("[Music] Stop signal sent")
 			// Remove current song from queue
 			var temp []*models.SongInfo
@@ -225,6 +231,8 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 
 	// Send not "speaking" packet over the websocket when we finish and start the cleanup
 	defer func() {
+		// Remove the 'Playing X' status
+		ctx.Client.Session.UpdateCustomStatus("")
 		err := v.Speaking(false)
 		if err != nil {
 			fmt.Println("Couldn't stop speaking")
