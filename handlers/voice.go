@@ -65,7 +65,6 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 			fmt.Println("PCM Channel closed")
 			return
 		}
-
 		// try encoding pcm frame with Opus
 		opus, err := opusEncoder.Encode(recv, frameSize, maxBytes)
 		if err != nil {
@@ -163,7 +162,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 		playNextSongInQueue(v, ctx, stop, skip)
 	} else if len(ctx.Client.SongQueue) == 0 { // Queue was empty
 		fmt.Println("[Music] Queue is empty, waiting for activity")
-		// Wait to see if activity happens
+		// Wait 60s to see if activity happens
 		var tries int = 0
 		for {
 			if tries >= 60 {
@@ -279,8 +278,8 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 
 	for {
 		// read data from ffmpeg stdout
-		audiobuf := make([]int16, frameSize*channels)
-		err = binary.Read(ffmpegbuf, binary.LittleEndian, &audiobuf)
+		var data []int16 = make([]int16, frameSize*channels)
+		err = binary.Read(ffmpegbuf, binary.LittleEndian, &data)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			return
 		}
@@ -291,7 +290,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 
 		// Send received PCM to the sendPCM channel
 		select {
-		case send <- audiobuf:
+		case send <- data:
 		case <-close:
 			fmt.Println("[Music] End of function")
 		}
