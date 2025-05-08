@@ -217,7 +217,8 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		if len(ctx.Client.SongQueue) > 0 {
 			fmt.Println("[Music] Queue is not empty, playing next song")
 			// Play the next song
-			playNextSongInQueue(v, ctx, stop)
+			go playNextSongInQueue(v, ctx, stop)
+			return
 		} else if len(ctx.Client.SongQueue) == 0 { // Queue was empty
 			fmt.Println("[Music] Queue is empty, waiting for activity")
 			// Wait to see if activity happens
@@ -226,6 +227,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 				// No activity, Disconnect
 				fmt.Println("[Music] Disconnecting because no activity and empty queue")
 				v.Disconnect()
+				return
 			}
 		}
 	}()
