@@ -25,6 +25,7 @@ type LanaBot struct {
 	Session *discordgo.Session
 
 	StopChannel chan bool
+	SkipChannel chan bool
 	SongQueue   []*SongInfo
 
 	IsPlaying bool
