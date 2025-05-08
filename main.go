@@ -27,10 +27,9 @@ func main() {
 	session, err := discordgo.New("Bot " + token)
 	error.ErrorCheckPanic(err)
 
-	var songQueue []*models.SongInfo = make([]*models.SongInfo, 1000)
 	var stopChannel = make(chan bool)
 
-	var Bot = models.LanaBot{Session: session, StopChannel: stopChannel, SongQueue: songQueue, Token: token, Owners: owners, Prefix: prefix, Commands: commandList}
+	var Bot = models.LanaBot{Session: session, StopChannel: stopChannel, Token: token, Owners: owners, Prefix: prefix, Commands: commandList}
 	Bot.AddCommands(commands.AllCommands)
 	session.Identify.Intents = models.Intents
 
