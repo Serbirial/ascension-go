@@ -279,8 +279,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 
 	for {
 		// read data from ffmpeg stdout
-		var size int = int(0.5 * float64(frameRate) * float64(frameSize) * float64(channels))
-		audiobuf := make([]int16, size)
+		audiobuf := make([]int16, frameSize*channels)
 		err = binary.Read(ffmpegbuf, binary.LittleEndian, &audiobuf)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			return
