@@ -239,10 +239,6 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		close <- true
 	}()
 
-	// Main cleanup logic
-	defer func() {
-	}()
-
 	for {
 		// read data from ffmpeg stdout
 		audiobuf := make([]int16, frameSize*channels)
