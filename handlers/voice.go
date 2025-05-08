@@ -155,7 +155,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	// Remove current song from queue and replace it with the updated one
 	ctx.Client.SongQueue = removeSongFromQueue(ctx)
 	// Set Playing to false
-	ctx.Client.IsPlaying = false
+	ctx.Client.ReversePlayingBool()
 	// Check if Queue is empty
 	if len(ctx.Client.SongQueue) >= 1 {
 		fmt.Println("[Music] Queue is not empty, playing next song")
