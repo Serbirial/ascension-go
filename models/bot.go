@@ -37,6 +37,9 @@ type LanaBot struct {
 func (bot *LanaBot) AddToQueue(song *SongInfo) {
 	bot.SongQueue = append(bot.SongQueue, song)
 }
+func (bot *LanaBot) SetQueue(queue []*SongInfo) {
+	bot.SongQueue = queue
+}
 
 func (bot *LanaBot) SetPlayingBool(toSet bool) {
 	bot.IsPlaying = toSet
