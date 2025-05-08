@@ -6,12 +6,13 @@
 
 // Package dgvoice provides opus encoding and audio file playback for the
 // Discordgo package.
-package dgvoice
+package handlers
 
 import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"gobot/models"
 	"io"
 	"os/exec"
 	"strconv"
@@ -136,10 +137,22 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 	}
 }
 
+func removeSongFromQueue(ctx *models.Context) []*models.SongInfo {
+	// Remove current song from queue
+	var temp []*models.SongInfo
+	for i := 0; i < len(ctx.Client.SongQueue); i++ {
+		if i >= 1 {
+			temp = append(temp, ctx.Client.SongQueue[i])
+		}
+	}
+	// Replace queue with updated one
+	return temp
+}
+
 // PlayAudioFile will play the given filename to the already connected
 // Discord voice server/channel.  voice websocket and udp socket
 // must already be setup before this will work.
-func PlayAudioFile(v *discordgo.VoiceConnection, filename string, stop <-chan bool) {
+func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool) {
 
 	// Create a shell command "object" to run.
 	run := exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
