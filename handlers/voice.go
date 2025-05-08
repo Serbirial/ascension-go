@@ -199,12 +199,34 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	// Set Playing to true
 	ctx.Client.IsPlaying = true
 
-	// Send not "speaking" packet over the websocket when we finish
+	// Main cleanup logic
 	defer func() {
+		fmt.Println("[Music] Cleanup process started")
+		// Send not "speaking" packet over the websocket while waiting
 		fmt.Println("[Music] Stopping speaking action")
 		err := v.Speaking(false)
 		if err != nil {
 			fmt.Println("Couldn't stop speaking")
+		}
+		// Remove current song from queue and replace it with the updated one
+		ctx.Client.SongQueue = removeSongFromQueue(ctx)
+		// Set Playing to false
+		ctx.Client.IsPlaying = false
+
+		// Check if Queue is empty
+		if len(ctx.Client.SongQueue) > 0 {
+			fmt.Println("[Music] Queue is not empty, playing next song")
+			// Play the next song
+			playNextSongInQueue(v, ctx, stop)
+		} else if len(ctx.Client.SongQueue) == 0 { // Queue was empty
+			fmt.Println("[Music] Queue is empty, waiting for activity")
+			// Wait to see if activity happens
+			time.Sleep(60 * time.Second)
+			if len(ctx.Client.SongQueue) == 0 {
+				// No activity, Disconnect
+				fmt.Println("[Music] Disconnecting because no activity and empty queue")
+				v.Disconnect()
+			}
 		}
 	}()
 
@@ -219,27 +241,6 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 
 	// Main cleanup logic
 	defer func() {
-		fmt.Println("[Music] Cleanup process started")
-		// Remove current song from queue and replace it with the updated one
-		ctx.Client.SongQueue = removeSongFromQueue(ctx)
-		// Set Playing to false
-		ctx.Client.IsPlaying = false
-
-		// Check if Queue is empty
-		if len(ctx.Client.SongQueue) >= 1 {
-			fmt.Println("[Music] Queue is not empty, playing next song")
-			// Play the next song
-			playNextSongInQueue(v, ctx, stop)
-		} else if len(ctx.Client.SongQueue) == 0 { // Queue was empty
-			fmt.Println("[Music] Queue is empty, waiting for activity")
-			// Wait to see if activity happens
-			time.Sleep(60 * time.Second)
-			if len(ctx.Client.SongQueue) == 0 {
-				// No activity, Disconnect
-				fmt.Println("[Music] Disconnecting because no activity and empty queue")
-				v.Disconnect()
-			}
-		}
 	}()
 
 	for {
