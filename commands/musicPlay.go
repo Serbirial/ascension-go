@@ -53,19 +53,20 @@ func playCommand(ctx *models.Context, args map[string]string) {
 		ctx.Send("Error with DownloadURL function.")
 		return
 	}
-	ctx.Send("Done.")
+	ctx.Send("Done downloading.")
 
 	// Add the song to the queue
 	ctx.Client.SongQueue = append(ctx.Client.SongQueue, songInfo)
 
-	// ctx.Client.Session.UpdateCustomStatus("Playing: " + file)
-	// Nothing is playing: start playing song instantly.
-	if !ctx.Client.IsPlaying {
+	// If something is playing, return and do nothing after adding to queue
+	// Else if not playing: start playing song instantly.
+	if ctx.Client.IsPlaying {
+		return
+	} else if !ctx.Client.IsPlaying {
 		var channel = make(chan bool)
 		ctx.Client.StopChannel = channel
-		ctx.Send("Playing: " + songInfo.Title)
 		ctx.Client.IsPlaying = true
-		handlers.PlayAudioFile(voice, ctx, songInfo.FilePath, channel)
+		handlers.PlayAudioFile(voice, ctx, songInfo, songInfo.FilePath, channel)
 	}
 
 	// Close connections
