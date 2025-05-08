@@ -153,7 +153,7 @@ func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop
 func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool) {
 	fmt.Println("[Music] Cleanup process started")
 	// Remove current song from queue and replace it with the updated one
-	ctx.Client.SongQueue = removeSongFromQueue(ctx)
+	ctx.Client.SetQueue(removeSongFromQueue(ctx))
 	// Set Playing to false
 	ctx.Client.SetPlayingBool(false)
 	// Check if Queue is empty
@@ -230,7 +230,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 				}
 			}
 			// Replace queue with updated one
-			ctx.Client.SongQueue = temp
+			ctx.Client.SetQueue(temp)
 			// Kill ffmpeg
 			err = run.Process.Kill()
 			fmt.Println("[Music] FFMPEG killed")
