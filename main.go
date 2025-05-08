@@ -27,7 +27,7 @@ func main() {
 	session, err := discordgo.New("Bot " + token)
 	error.ErrorCheckPanic(err)
 
-	var songQueue []*models.SongInfo
+	var songQueue []*models.SongInfo = make([]*models.SongInfo, 1000)
 	var stopChannel = make(chan bool)
 	var isPlaying bool = false
 
