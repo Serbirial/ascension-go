@@ -34,7 +34,7 @@ type LanaBot struct {
 	Commands  map[string]Command
 }
 
-func (bot LanaBot) UpdateQueue(queue []*SongInfo) {
+func (bot LanaBot) SetQueue(queue []*SongInfo) {
 	bot.SongQueue = queue
 }
 
