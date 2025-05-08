@@ -232,6 +232,11 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	// Set Playing to true
 	ctx.Client.SetPlaying(true)
 
+	// Do cleanup when finished
+	defer func() {
+		startCleanupProcess(v, ctx, stop)
+	}()
+
 	send := make(chan []int16, 2)
 	defer close(send)
 
@@ -257,9 +262,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		select {
 		case send <- audiobuf:
 		case <-close:
-			defer func() {
-				startCleanupProcess(v, ctx, stop)
-			}()
+			return
 		}
 	}
 }

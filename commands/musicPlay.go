@@ -66,7 +66,7 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	} else if ctx.Client.IsPlaying == false {
 		ctx.Send("Playing now.")
 		handlers.PlayAudioFile(voice, ctx, songInfo, songInfo.FilePath, ctx.Client.StopChannel)
-		return
+
 	}
 
 	// Close connections
