@@ -13,10 +13,10 @@ var QueueCommand = models.Command{
 }
 
 func queueCommand(ctx *models.Context, args map[string]string) {
-	var msg string
+	var msg string = "Queue:"
 
 	for _, songInfo := range ctx.Client.SongQueue {
-		msg += songInfo.Title + " - " + songInfo.Uploader + "\n"
+		msg += "	" + songInfo.Title + " - " + songInfo.Uploader + "\n"
 	}
 
 	ctx.Send(msg)
