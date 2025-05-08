@@ -6,8 +6,8 @@ import (
 )
 
 var TestCommand = models.Command{
-	Name:     "queue",
-	Desc:     "Shows the queue.",
+	Name:     "test",
+	Desc:     "testing.",
 	Aliases:  []string{"pl"},
 	Checks:   []func(*models.Context) error{},
 	Callback: testCommand,
