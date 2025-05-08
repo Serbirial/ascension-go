@@ -164,7 +164,17 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	} else if len(ctx.Client.SongQueue) == 0 { // Queue was empty
 		fmt.Println("[Music] Queue is empty, waiting for activity")
 		// Wait to see if activity happens
-		time.Sleep(60 * time.Second)
+		var tries int = 0
+		for {
+			if tries >= 60 {
+				break
+			}
+			time.Sleep(1 * time.Second)
+			if len(ctx.Client.SongQueue) >= 1 {
+				playNextSongInQueue(v, ctx, stop)
+			}
+			tries++
+		}
 		if len(ctx.Client.SongQueue) == 0 {
 			// No activity, Disconnect
 			fmt.Println("[Music] Disconnecting because no activity and empty queue")
@@ -255,7 +265,8 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 
 	for {
 		// read data from ffmpeg stdout
-		audiobuf := make([]int16, frameSize*channels)
+		var size int = int(0.5 * float64(frameRate) * float64(frameSize) * float64(channels))
+		audiobuf := make([]int16, size)
 		err = binary.Read(ffmpegbuf, binary.LittleEndian, &audiobuf)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			return
