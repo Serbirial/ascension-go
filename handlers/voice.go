@@ -142,6 +142,9 @@ func removeSongFromQueue(ctx *models.Context) []*models.SongInfo {
 func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool) {
 	if len(ctx.Client.SongQueue) >= 1 {
 		// Get first SongInfo in Queue and play it
+		fmt.Println(ctx.Client.SongQueue)
+		fmt.Println(ctx.Client.SongQueue[0])
+
 		var song *models.SongInfo = ctx.Client.SongQueue[0]
 		PlayAudioFile(v, ctx, song, song.FilePath, stop)
 	}
@@ -154,7 +157,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	// Set Playing to false
 	ctx.Client.IsPlaying = false
 	// Check if Queue is empty
-	if len(ctx.Client.SongQueue) > 0 {
+	if len(ctx.Client.SongQueue) >= 1 {
 		fmt.Println("[Music] Queue is not empty, playing next song")
 		// Play the next song
 		playNextSongInQueue(v, ctx, stop)
