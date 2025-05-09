@@ -201,7 +201,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		return
 	}
 
-	ffmpegbuf := bufio.NewReaderSize(ffmpegout, 16384)
+	ffmpegbuf := bufio.NewReaderSize(ffmpegout, 16384*2)
 
 	// Starts the ffmpeg command
 	err = run.Start()
