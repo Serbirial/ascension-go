@@ -22,7 +22,7 @@ func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, erro
 	goutubeOptions := new(goutubedl.Options)
 	goutubeOptions.DownloadThumbnail = false
 	goutubeOptions.DownloadSubtitles = false
-	goutubeOptions.Downloader = "ffmpeg"
+	goutubeOptions.Downloader = "aria2c"
 	fmt.Println("[yt-dlp] Downloading metadata")
 	result, err := goutubedl.New(context.Background(), url, *goutubeOptions)
 	if err != nil {
@@ -36,6 +36,7 @@ func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, erro
 		downloadOptions := new(goutubedl.DownloadOptions)
 		downloadOptions.DownloadAudioOnly = true
 		downloadOptions.AudioFormats = "best"
+		downloadOptions.PlaylistIndex = 1
 		downloadResult, err := result.DownloadWithOptions(context.Background(), *downloadOptions)
 		if err != nil {
 			log.Fatal(err)
