@@ -12,7 +12,7 @@ var JoinCommand = models.Command{
 	Desc:     "Joins the voice channel.",
 	Aliases:  []string{"j"},
 	Checks:   []func(*models.Context) error{},
-	Callback: playCommand,
+	Callback: joinCommand,
 }
 
 func joinCommand(ctx *models.Context, args map[string]string) {
