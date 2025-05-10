@@ -44,19 +44,19 @@ var (
 // SendPCM will receive on the provied channel encode
 // received PCM data into Opus then send that to Discordgo
 // TODO: download as opus or convert to opus so i can cut out usage of gopus opus encoding
-func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
+func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []byte) {
 	if pcm == nil {
 		return
 	}
 
-	var err error
+	//var err error
 
-	opusEncoder, err = gopus.NewEncoder(frameRate, channels, gopus.Audio)
+	//opusEncoder, err = gopus.NewEncoder(frameRate, channels, gopus.Audio)
 
-	if err != nil {
-		fmt.Println("NewEncoder Error", err)
-		return
-	}
+	//if err != nil {
+	//	fmt.Println("NewEncoder Error", err)
+	//	return
+	//}
 
 	for {
 
@@ -67,11 +67,11 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 			return
 		}
 		// try encoding pcm frame with Opus
-		opus, err := opusEncoder.Encode(recv, frameSize, maxBytes)
-		if err != nil {
-			fmt.Println("Encoding Error")
-			return
-		}
+		//opus, err := opusEncoder.Encode(recv, frameSize, maxBytes)
+		//if err != nil {
+		//	fmt.Println("Encoding Error")
+		//	return
+		//}
 
 		if v.Ready == false || v.OpusSend == nil {
 			// fmt.Println(fmt.Sprintf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
@@ -79,7 +79,7 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 			return
 		}
 		// send encoded opus data to the sendOpus channel
-		v.OpusSend <- opus
+		v.OpusSend <- recv
 	}
 }
 
@@ -268,7 +268,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		startCleanupProcess(v, ctx, stop, skip)
 	}()
 
-	send := make(chan []int16, 2)
+	send := make(chan []byte, 2)
 	defer close(send)
 
 	close := make(chan bool)
@@ -279,7 +279,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 
 	for {
 		// read data from ffmpeg stdout
-		var data []int16 = make([]int16, frameSize*channels)
+		var data []byte = make([]byte, frameSize*channels)
 		err = binary.Read(ffmpegbuf, binary.LittleEndian, &data)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			return
