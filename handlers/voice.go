@@ -43,6 +43,7 @@ var (
 
 // SendPCM will receive on the provied channel encode
 // received PCM data into Opus then send that to Discordgo
+// TODO: download as opus or convert to opus so i can cut out usage of gopus opus encoding
 func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 	if pcm == nil {
 		return
@@ -201,7 +202,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		return
 	}
 
-	ffmpegbuf := bufio.NewReaderSize(ffmpegout, 16384*2)
+	ffmpegbuf := bufio.NewReaderSize(ffmpegout, 16384*20)
 
 	// Starts the ffmpeg command
 	err = run.Start()
