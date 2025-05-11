@@ -5,4 +5,5 @@ type SongInfo struct {
 
 	Title    string
 	Uploader string
+	ID       string
 }
