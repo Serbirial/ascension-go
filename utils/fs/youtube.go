@@ -2,12 +2,14 @@ package fs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"gobot/models"
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/serbirial/goutubedl"
 )
@@ -19,7 +21,51 @@ func RemoveDownloadedSong(song models.SongInfo) {
 
 }
 
+func saveSongInfoToFile(songInfo models.SongInfo, filename string) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ") // Pretty-print the JSON
+	if err := encoder.Encode(songInfo); err != nil {
+		return fmt.Errorf("failed to encode JSON: %w", err)
+	}
+	return nil
+}
+
+func loadSongInfoFromFile(filename string) (*models.SongInfo, error) {
+	var songInfo models.SongInfo
+
+	file, err := os.Open(filename)
+	if err != nil {
+		return &songInfo, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&songInfo); err != nil {
+		return &songInfo, fmt.Errorf("failed to decode JSON: %w", err)
+	}
+
+	return &songInfo, nil
+}
+
 func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, error) {
+	parts := strings.Split(url, "?v=")
+	if len(parts) > 1 {
+		path := fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, parts[1], ".json")
+		_, err := os.Stat(path)
+		if err == nil {
+			return loadSongInfoFromFile(path)
+		}
+
+	} else {
+		fmt.Println("No '?v=' found in URL")
+	}
+
 	goutubeOptions := new(goutubedl.Options)
 	goutubeOptions.DownloadThumbnail = false
 	goutubeOptions.DownloadSubtitles = false
@@ -51,8 +97,17 @@ func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, erro
 		}
 		defer f.Close()
 
+		songInfo := models.SongInfo{
+			FilePath: filePath + "." + FILE_ENDING,
+
+			Title:    result.Info.Title,
+			Uploader: result.Info.Uploader,
+			ID:       result.Info.ID,
+		}
+		saveSongInfoToFile(songInfo, fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, result.Info.ID, ".json"))
 		io.Copy(f, downloadResult)
 		fmt.Println("[yt-dlp] Downloaded")
+
 		// Convert the opus to discord accepted DCA and get the new path
 		_ = convertToDCA(filePath)
 
