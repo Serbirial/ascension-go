@@ -377,7 +377,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	var opuslen int16
 
 	// File reader
-	buffer := make(chan []byte, 200)
+	buffer := make(chan []byte, 400)
 
 	//when stop is sent, set stop bool to true
 	go func() {
@@ -386,7 +386,6 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		if signal {
 			fmt.Println("[Music] Stop signal recognized")
 			closeChannel <- true
-			close(buffer)
 			fmt.Println("[Music] Buffer closed")
 		}
 	}()
@@ -398,7 +397,6 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		if signal {
 			fmt.Println("[Music] Skip signal recognized")
 			closeChannel <- true
-			close(buffer)
 			fmt.Println("[Music] Buffer closed")
 		}
 	}()
