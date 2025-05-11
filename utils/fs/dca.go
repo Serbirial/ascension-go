@@ -32,10 +32,6 @@ func convertToDCA(file string) string {
 	dca.Stdout = outFile
 	dca.Stderr = os.Stderr
 
-	// Optional: Log any errors
-	ffmpeg.Stderr = os.Stderr
-	dca.Stderr = os.Stderr
-
 	// Start ffmpeg first
 	if err := ffmpeg.Start(); err != nil {
 		log.Fatalf("[Converter] Failed to start ffmpeg: %v", err)
