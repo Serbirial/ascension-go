@@ -9,15 +9,19 @@
 package handlers
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
 	"gobot/models"
 	"io"
 	"os"
+	"os/exec"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	//"layeh.com/gopus"
+	"layeh.com/gopus"
 )
 
 // NOTE: This API is not final and these are likely to change.
@@ -25,7 +29,7 @@ import (
 // Technically the below settings can be adjusted however that poses
 // a lot of other problems that are not handled well at this time.
 // These below values seem to provide the best overall performance
-/* const (
+const (
 	channels  int = 2                   // 1 for mono, 2 for stereo
 	frameRate int = 48000               // audio sampling rate
 	frameSize int = 960                 // uint16 size of each audio frame
@@ -35,13 +39,13 @@ import (
 var (
 	speakers    map[uint32]*gopus.Decoder
 	opusEncoder *gopus.Encoder
-	mu sync.Mutex
-) */
+	mu          sync.Mutex
+)
 
 // SendPCM will receive on the provied channel encode
 // received PCM data into Opus then send that to Discordgo
 // TODO: download as opus or convert to opus so i can cut out usage of gopus opus encoding
-/* func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
+func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 	if pcm == nil {
 		return
 	}
@@ -78,7 +82,7 @@ var (
 		// send encoded opus data to the sendOpus channel
 		v.OpusSend <- opus
 	}
-} */
+}
 
 // SendDCA will receive on the provied channel then send that to Discordgo
 func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte) {
@@ -106,7 +110,7 @@ func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte) {
 
 // ReceivePCM will receive on the the Discordgo OpusRecv channel and decode
 // the opus audio into PCM then send it on the provided channel.
-/* func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
+func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 	if c == nil {
 		return
 	}
@@ -146,7 +150,7 @@ func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte) {
 		c <- p
 	}
 }
-*/
+
 func removeSongFromQueue(ctx *models.Context) []*models.SongInfo {
 	// Remove current song from queue
 	var temp []*models.SongInfo
@@ -173,6 +177,11 @@ func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop
 
 func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool) {
 	fmt.Println("[Music] Cleanup process started")
+	// Stop speaking
+	err := v.Speaking(false)
+	if err != nil {
+		fmt.Println("Couldn't stop speaking")
+	}
 	// Remove current song from queue and replace it with the updated one while clearing status
 	clearStatusAndRemoveCurrentSongFromQueue(ctx)
 	// Set Playing to false
@@ -192,7 +201,8 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 			}
 			time.Sleep(1 * time.Second)
 			if len(ctx.Client.SongQueue) >= 1 {
-				playNextSongInQueue(v, ctx, stop, skip)
+				fmt.Println("[Music] Activity in queue")
+				break
 			}
 			tries++
 		}
@@ -205,10 +215,16 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	}
 }
 
+func clearStatusAndRemoveCurrentSongFromQueue(ctx *models.Context) {
+	ctx.Client.Session.UpdateCustomStatus("")
+	temp := removeSongFromQueue(ctx)
+	ctx.Client.SetQueue(temp)
+}
+
 // PlayAudioFile will play the given filename to the already connected
 // Discord voice server/channel.  voice websocket and udp socket
 // must already be setup before this will work.
-/* func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool) {
+func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool) {
 	// Send "playing" message to the channel
 	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
 	// Set status
@@ -317,12 +333,6 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 			fmt.Println("[Music] End of function")
 		}
 	}
-} */
-
-func clearStatusAndRemoveCurrentSongFromQueue(ctx *models.Context) {
-	ctx.Client.Session.UpdateCustomStatus("")
-	temp := removeSongFromQueue(ctx)
-	ctx.Client.SetQueue(temp)
 }
 
 func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool) {
@@ -351,11 +361,11 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		ctx.Client.Session.UpdateCustomStatus("")
 		err := v.Speaking(false)
 		if err != nil {
-			fmt.Println("Couldn't stop speaking")
+			return // This should only error when already not speaking
 		}
 	}()
 
-	send := make(chan []byte, 100)
+	send := make(chan []byte, 200)
 	defer close(send)
 
 	closeChannel := make(chan bool)
@@ -364,15 +374,20 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		closeChannel <- true
 	}()
 
+	var opuslen int16
+
+	// File reader
+	buffer := make(chan []byte, 200)
+
 	//when stop is sent, set stop bool to true
 	go func() {
 		signal := <-stop
 		fmt.Println("[Music] Received signal")
 		if signal {
 			fmt.Println("[Music] Stop signal recognized")
-			// Set the flag for the loop to recognize
-			closeChannel <- true
-			fmt.Println("[Music] Close signal sent")
+			// Closing the buffer will stop the loop
+			close(buffer)
+			fmt.Println("[Music] Buffer closed")
 		}
 	}()
 
@@ -382,15 +397,11 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		fmt.Println("[Music] Received signal")
 		if signal {
 			fmt.Println("[Music] Skip signal recognized")
-			closeChannel <- true
-			fmt.Println("[Music] Close signal sent")
+			// Closing the buffer will stop the loop
+			close(buffer)
+			fmt.Println("[Music] Buffer closed")
 		}
 	}()
-
-	var opuslen int16
-
-	// File reader
-	buffer := make(chan []byte, 200)
 
 	go func() {
 		for {
@@ -420,7 +431,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		case data, ok := <-buffer:
 			if !ok {
 				// DCA stream ended
-				fmt.Println("[Music] DCA buffer empty, ending stream")
+				fmt.Println("[Music] DCA buffer empty/closed, ending stream")
 				startCleanupProcess(v, ctx, stop, skip)
 
 				return
