@@ -35,6 +35,7 @@ type LanaBot struct {
 	Commands  map[string]Command
 }
 
+
 func (bot *LanaBot) AddToQueue(song *SongInfo) {
 	bot.SongQueue = append(bot.SongQueue, song)
 }
@@ -47,6 +48,7 @@ func (bot *LanaBot) SetPlayingBool(toSet bool) {
 }
 
 func (bot *LanaBot) matchArgsToCommand(ctx *Context, argsRaw string) map[string]string {
+
 
 	// Maybe use SplitAfterN
 	var argsSplit = strings.SplitN(argsRaw, " ", len(ctx.CurrentCommand.Args)+1)

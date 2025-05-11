@@ -53,7 +53,6 @@ func playCommand(ctx *models.Context, args map[string]string) {
 		ctx.Send("Error with DownloadURL function.")
 		return
 	}
-	ctx.Send("Done.")
 
 	// Add the song to the queue
 	ctx.Client.AddToQueue(songInfo)
@@ -63,10 +62,9 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	if ctx.Client.IsPlaying == false {
 		ctx.Client.SetPlayingBool(true)
 		handlers.PlayDCAFile(voice, ctx, songInfo, songInfo.FilePath, ctx.Client.StopChannel, ctx.Client.SkipChannel)
+
 	}
 
 	// Close connections
 	// voice.Close()
-
-	return
 }
