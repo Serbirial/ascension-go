@@ -29,8 +29,9 @@ func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, erro
 	if err != nil {
 		log.Fatal(err)
 	}
-	// check if we havent downloaded it
-	if _, err := os.Stat(fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, result.Info.ID, FILE_ENDING)); errors.Is(err, os.ErrNotExist) {
+	filePath := fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, result.Info.ID, FILE_ENDING)
+	// check if we havent downloaded and converted it
+	if _, err := os.Stat(filePath); errors.Is(err, os.ErrNotExist) {
 		fmt.Println("[yt-dlp] Downloading video")
 		filePath := fmt.Sprintf("%s/%s", AUDIO_FOLDER, result.Info.ID)
 
@@ -52,12 +53,10 @@ func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, erro
 
 		io.Copy(f, downloadResult)
 		fmt.Println("[yt-dlp] Downloaded")
+		// Convert the opus to discord accepted DCA and get the new path
+		filePath = convertToDCA(filePath)
 
 	}
-
-	filePath := fmt.Sprintf("%s/%s", AUDIO_FOLDER, result.Info.ID)
-	// Convert the opus to discord accepted DCA and get the new path
-	filePath = convertToDCA(filePath)
 
 	songInfo := models.SongInfo{
 		FilePath: filePath,
