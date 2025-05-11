@@ -94,10 +94,10 @@ func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte) {
 
 	for {
 
-		// read pcm from chan, exit if channel is closed.
+		// read dca from chan, exit if channel is closed.
 		dca, ok := <-dca
 		if !ok {
-			fmt.Println("PCM Channel closed")
+			fmt.Println("DCA Channel closed")
 			return
 		}
 		if v.Ready == false || v.OpusSend == nil {
@@ -182,7 +182,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	// Stop speaking
 	err := checks.BotInVoice(ctx)
 	if err != nil {
-		recoverBotLeftChannel(ctx) // This should only error when already not speaking
+		v = recoverBotLeftChannel(ctx) // This should only error when already not speaking
 	}
 	err = v.Speaking(false)
 	if err != nil {
@@ -306,7 +306,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		ctx.Client.Session.UpdateCustomStatus("")
 		err = checks.BotInVoice(ctx)
 		if err != nil {
-			recoverBotLeftChannel(ctx) // This should only error when already not speaking
+			v = recoverBotLeftChannel(ctx) // This should only error when already not speaking
 		}
 		err = v.Speaking(false)
 		if err != nil {
@@ -346,14 +346,15 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	}
 }
 
-func recoverBotLeftChannel(ctx *models.Context) {
+func recoverBotLeftChannel(ctx *models.Context) *discordgo.VoiceConnection {
 	channelID, err := checks.GetUserVoiceChannel(ctx)
-	_, err = ctx.Client.Session.ChannelVoiceJoin(ctx.GuildID, channelID, false, true)
+	v, err := ctx.Client.Session.ChannelVoiceJoin(ctx.GuildID, channelID, false, true)
 	if err != nil {
 		fmt.Println(err)
 		ctx.Send("Error joining the voice channel")
-		return
+		return nil
 	}
+	return v
 }
 
 func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool) {
@@ -373,7 +374,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	// Send "speaking" packet over the voice websocket
 	err = checks.BotInVoice(ctx)
 	if err != nil {
-		recoverBotLeftChannel(ctx) // This should only error when already not speaking
+		v = recoverBotLeftChannel(ctx) // This should only error when already not speaking
 	}
 	err = v.Speaking(false)
 	if err != nil {
@@ -386,7 +387,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		ctx.Client.Session.UpdateCustomStatus("")
 		err = checks.BotInVoice(ctx)
 		if err != nil {
-			recoverBotLeftChannel(ctx) // This should only error when already not speaking
+			v = recoverBotLeftChannel(ctx) // This should only error when already not speaking
 		}
 		err := v.Speaking(false)
 		if err != nil {
