@@ -9,19 +9,15 @@
 package handlers
 
 import (
-	"bufio"
 	"encoding/binary"
 	"fmt"
 	"gobot/models"
 	"io"
 	"os"
-	"os/exec"
-	"strconv"
-	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"layeh.com/gopus"
+	//"layeh.com/gopus"
 )
 
 // NOTE: This API is not final and these are likely to change.
@@ -29,7 +25,7 @@ import (
 // Technically the below settings can be adjusted however that poses
 // a lot of other problems that are not handled well at this time.
 // These below values seem to provide the best overall performance
-const (
+/* const (
 	channels  int = 2                   // 1 for mono, 2 for stereo
 	frameRate int = 48000               // audio sampling rate
 	frameSize int = 960                 // uint16 size of each audio frame
@@ -39,13 +35,13 @@ const (
 var (
 	speakers    map[uint32]*gopus.Decoder
 	opusEncoder *gopus.Encoder
-	mu          sync.Mutex
-)
+	mu sync.Mutex
+) */
 
 // SendPCM will receive on the provied channel encode
 // received PCM data into Opus then send that to Discordgo
 // TODO: download as opus or convert to opus so i can cut out usage of gopus opus encoding
-func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
+/* func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 	if pcm == nil {
 		return
 	}
@@ -82,20 +78,11 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 		// send encoded opus data to the sendOpus channel
 		v.OpusSend <- opus
 	}
-}
+} */
 
 // SendDCA will receive on the provied channel then send that to Discordgo
 func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte) {
 	if dca == nil {
-		return
-	}
-
-	var err error
-
-	opusEncoder, err = gopus.NewEncoder(frameRate, channels, gopus.Audio)
-
-	if err != nil {
-		fmt.Println("NewEncoder Error", err)
 		return
 	}
 
@@ -119,7 +106,7 @@ func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte) {
 
 // ReceivePCM will receive on the the Discordgo OpusRecv channel and decode
 // the opus audio into PCM then send it on the provided channel.
-func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
+/* func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 	if c == nil {
 		return
 	}
@@ -159,7 +146,7 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 		c <- p
 	}
 }
-
+*/
 func removeSongFromQueue(ctx *models.Context) []*models.SongInfo {
 	// Remove current song from queue
 	var temp []*models.SongInfo
@@ -221,7 +208,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 // PlayAudioFile will play the given filename to the already connected
 // Discord voice server/channel.  voice websocket and udp socket
 // must already be setup before this will work.
-func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool) {
+/* func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool) {
 	// Send "playing" message to the channel
 	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
 	// Set status
@@ -330,7 +317,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 			fmt.Println("[Music] End of function")
 		}
 	}
-}
+} */
 
 func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool) {
 
