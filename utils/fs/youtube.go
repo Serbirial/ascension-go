@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+
 	"gobot/models"
 	"io"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/serbirial/goutubedl"
 )
@@ -53,18 +54,20 @@ func loadSongInfoFromFile(filename string) (*models.SongInfo, error) {
 	return &songInfo, nil
 }
 
-func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, error) {
-	parts := strings.Split(url, "?v=")
-	if len(parts) >= 1 {
-		path := fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, parts[1], ".json")
-		fmt.Println("Looking for metadata at" + path)
-		_, err := os.Stat(path)
-		if err == nil {
-			return loadSongInfoFromFile(path)
-		}
+func DownloadYoutubeURLToFile(rawurl string, folder string) (*models.SongInfo, error) {
+	parsedURL, err := url.Parse(rawurl)
+	if err != nil {
+		return nil, err
+	}
+	videoID := parsedURL.Query().Get("v")
+	if videoID == "" {
+		return nil, fmt.Errorf("no video ID found in URL")
+	}
+	path := fmt.Sprintf("%s/%s.json", AUDIO_FOLDER, videoID)
+	fmt.Println("Looking for metadata at " + path)
 
-	} else {
-		fmt.Println("No '?v=' found in URL")
+	if _, err := os.Stat(path); err == nil {
+		return loadSongInfoFromFile(path)
 	}
 
 	goutubeOptions := new(goutubedl.Options)
@@ -72,7 +75,7 @@ func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, erro
 	goutubeOptions.DownloadSubtitles = false
 	goutubeOptions.Downloader = "aria2c"
 	fmt.Println("[yt-dlp] Downloading metadata")
-	result, err := goutubedl.New(context.Background(), url, *goutubeOptions)
+	result, err := goutubedl.New(context.Background(), rawurl, *goutubeOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
