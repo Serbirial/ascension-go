@@ -25,6 +25,7 @@ type LanaBot struct {
 	Session *discordgo.Session
 
 	StopChannel chan bool
+	SkipChannel chan bool
 	SongQueue   []*SongInfo
 
 	IsPlaying bool
@@ -34,15 +35,20 @@ type LanaBot struct {
 	Commands  map[string]Command
 }
 
-func (bot LanaBot) SetQueue(queue []*SongInfo) {
+
+func (bot *LanaBot) AddToQueue(song *SongInfo) {
+	bot.SongQueue = append(bot.SongQueue, song)
+}
+func (bot *LanaBot) SetQueue(queue []*SongInfo) {
 	bot.SongQueue = queue
 }
 
-func (bot LanaBot) SetPlaying(playing bool) {
-	bot.IsPlaying = playing
+func (bot *LanaBot) SetPlayingBool(toSet bool) {
+	bot.IsPlaying = toSet
 }
 
-func (bot LanaBot) matchArgsToCommand(ctx *Context, argsRaw string) map[string]string {
+func (bot *LanaBot) matchArgsToCommand(ctx *Context, argsRaw string) map[string]string {
+
 
 	// Maybe use SplitAfterN
 	var argsSplit = strings.SplitN(argsRaw, " ", len(ctx.CurrentCommand.Args)+1)
@@ -62,7 +68,7 @@ func (bot LanaBot) matchArgsToCommand(ctx *Context, argsRaw string) map[string]s
 	return args
 }
 
-func (bot LanaBot) ProcessMessage(session *discordgo.Session, message *discordgo.MessageCreate) {
+func (bot *LanaBot) ProcessMessage(session *discordgo.Session, message *discordgo.MessageCreate) {
 	if message.Author.ID == session.State.User.ID {
 		return
 	}
@@ -75,7 +81,8 @@ func (bot LanaBot) ProcessMessage(session *discordgo.Session, message *discordgo
 			if exists {
 				var _, argsraw, _ = strings.Cut(message.Content, possibleCommandString)
 				// Create the context
-				ctx := &Context{bot, command, message.Author, argsraw, message.ChannelID, message.GuildID}
+				botPointer := &bot
+				ctx := &Context{*botPointer, command, message.Author, argsraw, message.ChannelID, message.GuildID}
 
 				// Execute all the checks
 				for i := 0; i < len(command.Checks); i++ {
@@ -94,7 +101,7 @@ func (bot LanaBot) ProcessMessage(session *discordgo.Session, message *discordgo
 	}
 }
 
-func (bot LanaBot) AddCommands(commands map[string]Command) {
+func (bot *LanaBot) AddCommands(commands map[string]Command) {
 	for name, command := range commands {
 		fmt.Println("Adding command: " + name)
 		bot.Commands[name] = command

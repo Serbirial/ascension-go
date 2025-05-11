@@ -55,17 +55,13 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	}
 
 	// Add the song to the queue
-	var newQueue []*models.SongInfo = append(ctx.Client.SongQueue, songInfo)
-	ctx.Client.SetQueue(newQueue)
+	ctx.Client.AddToQueue(songInfo)
 
-	// If something is playing, return and do nothing after adding to queue
-	// Else if not playing: start playing song instantly.
-	if ctx.Client.IsPlaying == true {
-		ctx.Send("Added to Queue")
-		return
-	} else if ctx.Client.IsPlaying == false {
-		ctx.Send("Playing now.")
-		handlers.PlayAudioFile(voice, ctx, songInfo, songInfo.FilePath, ctx.Client.StopChannel)
+	// ctx.Client.Session.UpdateCustomStatus("Playing: " + file)
+	// Nothing is playing: start playing song instantly.
+	if ctx.Client.IsPlaying == false {
+		ctx.Client.SetPlayingBool(true)
+		handlers.PlayDCAFile(voice, ctx, songInfo, songInfo.FilePath, ctx.Client.StopChannel, ctx.Client.SkipChannel)
 
 	}
 
