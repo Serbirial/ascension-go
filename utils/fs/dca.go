@@ -25,7 +25,7 @@ func convertToDCA(file string) string {
 	}
 
 	// Set up dca command, reading from ffmpegOut and writing to file
-	dca := exec.Command("/home/summers/dca")
+	dca := exec.Command("/home/summers/dca", "-ab", "8") // ab is bitrate
 	dca.Stdin = ffmpegOut
 	dca.Stdout = outFile
 
