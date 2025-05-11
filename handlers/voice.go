@@ -319,12 +319,22 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	}
 } */
 
+func clearStatusAndRemoveCurrentSongFromQueue(ctx *models.Context) {
+	ctx.Client.Session.UpdateCustomStatus("")
+	var temp []*models.SongInfo
+	if len(ctx.Client.SongQueue) > 1 {
+		temp = ctx.Client.SongQueue[1:]
+	}
+	ctx.Client.SetQueue(temp)
+}
+
 func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool) {
 
 	file, err := os.Open(filename)
 	if err != nil {
 		fmt.Println("Error opening dca file :", err)
 	}
+	defer file.Close()
 
 	// Send "playing" message to the channel
 	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
@@ -346,37 +356,25 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		if err != nil {
 			fmt.Println("Couldn't stop speaking")
 		}
-		startCleanupProcess(v, ctx, stop, skip)
 	}()
 
-	send := make(chan []byte, 2)
+	send := make(chan []byte, 100)
 	defer close(send)
 
-	close := make(chan bool)
+	closeChannel := make(chan bool)
 	go func() {
 		SendDCA(v, send)
-		close <- true
+		closeChannel <- true
 	}()
 
 	//when stop is sent, set stop bool to true
 	go func() {
 		signal := <-stop
 		fmt.Println("[Music] Received signal")
-		if signal == true {
-			// Remove the 'Playing X' status
-			ctx.Client.Session.UpdateCustomStatus("")
+		if signal {
 			fmt.Println("[Music] Stop signal recognized")
-			// Remove current song from queue
-			var temp []*models.SongInfo
-			for i := 0; i < len(ctx.Client.SongQueue); i++ {
-				if i >= 1 {
-					temp = append(temp, ctx.Client.SongQueue[i])
-				}
-			}
-			// Replace queue with updated one
-			ctx.Client.SetQueue(temp)
 			// Set the flag for the loop to recognize
-			close <- true
+			closeChannel <- true
 			fmt.Println("[Music] Close signal sent")
 		}
 	}()
@@ -385,60 +383,65 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	go func() {
 		signal := <-skip
 		fmt.Println("[Music] Received signal")
-		if signal == true {
-			// Remove the 'Playing X' status
-			ctx.Client.Session.UpdateCustomStatus("")
+		if signal {
 			fmt.Println("[Music] Skip signal recognized")
-			close <- true
+			closeChannel <- true
 			fmt.Println("[Music] Close signal sent")
-			startCleanupProcess(v, ctx, stop, skip)
 		}
 	}()
 
 	var opuslen int16
 
-	for {
-		err = binary.Read(file, binary.LittleEndian, &opuslen)
-		// If this is the end of the file, just return.
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			err := file.Close()
+	// File reader
+	buffer := make(chan []byte, 200)
+
+	go func() {
+		for {
+			err := binary.Read(file, binary.LittleEndian, &opuslen)
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				break
+			}
 			if err != nil {
-				fmt.Println("[Music] Error reading from dca file :", err)
-
+				fmt.Println("[Music] Error reading frame length:", err)
+				break
 			}
-		}
-		if err != nil {
-			fmt.Println("[Music] Error reading from dca file :", err)
-		}
 
-		// Read encoded pcm from dca file.
-		data := make([]byte, opuslen)
-		err = binary.Read(file, binary.LittleEndian, &data)
-		// Should not be any end of file errors
-		if err != nil {
-			fmt.Println("[Music] Error reading from dca file :", err)
-		}
+			data := make([]byte, opuslen)
+			err = binary.Read(file, binary.LittleEndian, &data)
+			if err != nil {
+				fmt.Println("[Music] Error reading frame data:", err)
+				break
+			}
 
-		// Send DCA data
+			buffer <- data // Fill the buffer
+		}
+		close(buffer) // Signal end of stream
+	}()
+
+	for {
 		select {
-		case send <- data:
-		case <-close:
-			// Remove the 'Playing X' status
-			ctx.Client.Session.UpdateCustomStatus("")
-			fmt.Println("[Music] Close signal recognized")
-			// Remove current song from queue
-			var temp []*models.SongInfo
-			for i := 0; i < len(ctx.Client.SongQueue); i++ {
-				if i >= 1 {
-					temp = append(temp, ctx.Client.SongQueue[i])
-				}
+		case data, ok := <-buffer:
+			if !ok {
+				// DCA stream ended
+				fmt.Println("[Music] DCA buffer empty, ending stream")
+				clearStatusAndRemoveCurrentSongFromQueue(ctx)
+				return
 			}
-			// Replace queue with updated one
-			ctx.Client.SetQueue(temp)
+			select {
+			case send <- data:
+			case <-closeChannel:
+				fmt.Println("[Music] Close signal received during send")
+				clearStatusAndRemoveCurrentSongFromQueue(ctx)
+				startCleanupProcess(v, ctx, stop, skip)
+				return
+			}
+		case <-closeChannel:
+			fmt.Println("[Music] Close signal recognized")
+			clearStatusAndRemoveCurrentSongFromQueue(ctx)
 			// Stop streaming
 			fmt.Println("[Music] DCA Streaming stopped")
 			startCleanupProcess(v, ctx, stop, skip)
-			break
+			return
 		}
 	}
 }
