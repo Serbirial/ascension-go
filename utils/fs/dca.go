@@ -18,8 +18,6 @@ func convertToDCA(file string) string {
 
 	ffmpeg := exec.Command("ffmpeg", "-i", file, "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1")
 
-	ffmpeg.Stderr = os.Stderr
-
 	// Get ffmpeg's stdout (raw PCM stream)
 	ffmpegOut, err := ffmpeg.StdoutPipe()
 	if err != nil {
@@ -30,7 +28,6 @@ func convertToDCA(file string) string {
 	dca := exec.Command("/home/summers/dca")
 	dca.Stdin = ffmpegOut
 	dca.Stdout = outFile
-	dca.Stderr = os.Stderr
 
 	// Start ffmpeg first
 	if err := ffmpeg.Start(); err != nil {
