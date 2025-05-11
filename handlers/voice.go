@@ -404,7 +404,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	defer close(send)
 
 	sendCloseChannel := make(chan bool, 1)
-	defer close(send)
+	defer close(sendCloseChannel)
 
 	closeChannel := make(chan bool, 1)
 	go func() {
