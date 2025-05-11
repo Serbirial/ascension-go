@@ -120,6 +120,7 @@ func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, erro
 		Uploader: result.Info.Uploader,
 		ID:       result.Info.ID,
 	}
+	saveSongInfoToFile(songInfo, fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, result.Info.ID, ".json"))
 
 	fmt.Println(filePath)
 	if err != nil {
