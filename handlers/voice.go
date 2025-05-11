@@ -368,7 +368,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	send := make(chan []byte, 200)
 	defer close(send)
 
-	closeChannel := make(chan bool)
+	closeChannel := make(chan bool, 1)
 	go func() {
 		SendDCA(v, send)
 		closeChannel <- true
@@ -385,7 +385,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		fmt.Println("[Music] Received signal")
 		if signal {
 			fmt.Println("[Music] Stop signal recognized")
-			// Closing the buffer will stop the loop
+			closeChannel <- true
 			close(buffer)
 			fmt.Println("[Music] Buffer closed")
 		}
@@ -397,7 +397,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		fmt.Println("[Music] Received signal")
 		if signal {
 			fmt.Println("[Music] Skip signal recognized")
-			// Closing the buffer will stop the loop
+			closeChannel <- true
 			close(buffer)
 			fmt.Println("[Music] Buffer closed")
 		}
