@@ -13,6 +13,7 @@ import (
 )
 
 const AUDIO_FOLDER string = "audio_temp"
+const FILE_ENDING string = "dca"
 
 func RemoveDownloadedSong(song models.SongInfo) {
 
@@ -29,7 +30,7 @@ func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, erro
 		log.Fatal(err)
 	}
 	// check if we havent downloaded it
-	if _, err := os.Stat(fmt.Sprintf("%s/%s", AUDIO_FOLDER, result.Info.ID)); errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, result.Info.ID, FILE_ENDING)); errors.Is(err, os.ErrNotExist) {
 		fmt.Println("[yt-dlp] Downloading video")
 		filePath := fmt.Sprintf("%s/%s", AUDIO_FOLDER, result.Info.ID)
 
