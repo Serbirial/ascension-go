@@ -173,8 +173,8 @@ func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop
 
 func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool) {
 	fmt.Println("[Music] Cleanup process started")
-	// Remove current song from queue and replace it with the updated one
-	ctx.Client.SetQueue(removeSongFromQueue(ctx))
+	// Remove current song from queue and replace it with the updated one while clearing status
+	clearStatusAndRemoveCurrentSongFromQueue(ctx)
 	// Set Playing to false
 	ctx.Client.SetPlayingBool(false)
 	// Check if Queue is empty
@@ -321,10 +321,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 
 func clearStatusAndRemoveCurrentSongFromQueue(ctx *models.Context) {
 	ctx.Client.Session.UpdateCustomStatus("")
-	var temp []*models.SongInfo
-	if len(ctx.Client.SongQueue) > 1 {
-		temp = ctx.Client.SongQueue[1:]
-	}
+	temp := removeSongFromQueue(ctx)
 	ctx.Client.SetQueue(temp)
 }
 
@@ -424,20 +421,19 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 			if !ok {
 				// DCA stream ended
 				fmt.Println("[Music] DCA buffer empty, ending stream")
-				clearStatusAndRemoveCurrentSongFromQueue(ctx)
+				startCleanupProcess(v, ctx, stop, skip)
+
 				return
 			}
 			select {
 			case send <- data:
 			case <-closeChannel:
 				fmt.Println("[Music] Close signal received during send")
-				clearStatusAndRemoveCurrentSongFromQueue(ctx)
 				startCleanupProcess(v, ctx, stop, skip)
 				return
 			}
 		case <-closeChannel:
 			fmt.Println("[Music] Close signal recognized")
-			clearStatusAndRemoveCurrentSongFromQueue(ctx)
 			// Stop streaming
 			fmt.Println("[Music] DCA Streaming stopped")
 			startCleanupProcess(v, ctx, stop, skip)
