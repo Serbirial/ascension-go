@@ -49,14 +49,14 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 		return
 	}
 
-	//var err error
+	var err error
 
-	//opusEncoder, err = gopus.NewEncoder(frameRate, channels, gopus.Audio)
+	opusEncoder, err = gopus.NewEncoder(frameRate, channels, gopus.Audio)
 
-	//if err != nil {
-	//	fmt.Println("NewEncoder Error", err)
-	//	return
-	//}
+	if err != nil {
+		fmt.Println("NewEncoder Error", err)
+		return
+	}
 
 	for {
 
@@ -67,11 +67,11 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 			return
 		}
 		// try encoding pcm frame with Opus
-		//opus, err := opusEncoder.Encode(recv, frameSize, maxBytes)
-		//if err != nil {
-		//	fmt.Println("Encoding Error")
-		//	return
-		//}
+		opus, err := opusEncoder.Encode(recv, frameSize, maxBytes)
+		if err != nil {
+			fmt.Println("Encoding Error")
+			return
+		}
 
 		if v.Ready == false || v.OpusSend == nil {
 			// fmt.Println(fmt.Sprintf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
@@ -79,12 +79,7 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 			return
 		}
 		// send encoded opus data to the sendOpus channel
-		data := make([]byte, frameSize*channels)
-		for i, v := range recv {
-			data[i*2] = byte(v)
-			data[i*2+1] = byte(v >> 8)
-		}
-		v.OpusSend <- data
+		v.OpusSend <- opus
 	}
 }
 
@@ -221,9 +216,9 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 
 	//when stop is sent, kill ffmpeg
 	go func() {
-		v := <-stop
+		signal := <-stop
 		fmt.Println("[Music] Received signal")
-		if v == true {
+		if signal == true {
 			// Remove the 'Playing X' status
 			ctx.Client.Session.UpdateCustomStatus("")
 			fmt.Println("[Music] Stop signal sent")
