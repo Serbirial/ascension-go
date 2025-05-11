@@ -28,6 +28,7 @@ func convertToDCA(file string) string {
 
 	// Set up dca command, reading from ffmpegOut and writing to file
 	dca := exec.Command("dca")
+	dca.Path = "~/go/bin/" // UN-HARDCODE THIS
 	dca.Stdin = ffmpegOut
 	dca.Stdout = outFile
 	dca.Stderr = os.Stderr
