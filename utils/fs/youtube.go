@@ -55,7 +55,7 @@ func loadSongInfoFromFile(filename string) (*models.SongInfo, error) {
 
 func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, error) {
 	parts := strings.Split(url, "?v=")
-	if len(parts) > 1 {
+	if len(parts) >= 1 {
 		path := fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, parts[1], ".json")
 		_, err := os.Stat(path)
 		if err == nil {
