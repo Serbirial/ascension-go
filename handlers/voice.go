@@ -437,7 +437,9 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 			select {
 			case send <- data:
 			case <-closeChannel:
-				fmt.Println("[Music] Close signal received during send")
+				fmt.Println("[Music] Close signal recognized during send")
+				// Stop streaming
+				fmt.Println("[Music] DCA Streaming stopped")
 				startCleanupProcess(v, ctx, stop, skip)
 				return
 			}
