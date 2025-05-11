@@ -87,26 +87,31 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 }
 
 // SendDCA will receive on the provied channel then send that to Discordgo
-func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte) {
+func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte, stop <-chan bool) {
 	if dca == nil {
 		return
 	}
 
 	for {
-
-		// read dca from chan, exit if channel is closed.
-		dca, ok := <-dca
-		if !ok {
-			fmt.Println("DCA Channel closed")
-			return
+		select {
+		case <-stop:
+			log.Println("[DCA] Stop recognized")
+			break
+		case <-time.After(10 * time.Millisecond):
+		case dca, ok := <-dca:
+			// read dca from chan, exit if channel is closed.
+			if !ok {
+				fmt.Println("[DCA] Channel closed")
+				return
+			}
+			if v.Ready == false || v.OpusSend == nil {
+				// fmt.Println(fmt.Sprintf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
+				// Sending errors here might not be suited
+				return
+			}
+			// send encoded opus data to the sendOpus channel
+			v.OpusSend <- dca
 		}
-		if v.Ready == false || v.OpusSend == nil {
-			// fmt.Println(fmt.Sprintf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
-			// Sending errors here might not be suited
-			return
-		}
-		// send encoded opus data to the sendOpus channel
-		v.OpusSend <- dca
 	}
 }
 
@@ -202,7 +207,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 		// Wait 60s to see if activity happens
 		var tries int = 0
 		for {
-			if tries >= 60 {
+			if tries >= 300 {
 				break
 			}
 			time.Sleep(1 * time.Second)
@@ -398,9 +403,12 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	send := make(chan []byte, 200)
 	defer close(send)
 
+	sendCloseChannel := make(chan bool, 1)
+	defer close(send)
+
 	closeChannel := make(chan bool, 1)
 	go func() {
-		SendDCA(v, send)
+		SendDCA(v, send, sendCloseChannel)
 		closeChannel <- true
 	}()
 
@@ -469,6 +477,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 			case <-closeChannel:
 				fmt.Println("[Music] Close signal recognized during send")
 				// Stop streaming
+				sendCloseChannel <- true
 				fmt.Println("[Music] DCA Streaming stopped")
 				startCleanupProcess(v, ctx, stop, skip)
 				return
@@ -476,6 +485,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		case <-closeChannel:
 			fmt.Println("[Music] Close signal recognized")
 			// Stop streaming
+			sendCloseChannel <- true
 			fmt.Println("[Music] DCA Streaming stopped")
 			startCleanupProcess(v, ctx, stop, skip)
 			return
