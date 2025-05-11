@@ -13,7 +13,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"gobot/models"
+	"gobot/utils/checks"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"strconv"
@@ -178,9 +180,13 @@ func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop
 func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool) {
 	fmt.Println("[Music] Cleanup process started")
 	// Stop speaking
-	err := v.Speaking(false)
+	err := checks.BotInVoice(ctx)
 	if err != nil {
-		fmt.Println("Couldn't stop speaking")
+		recoverBotLeftChannel(ctx) // This should only error when already not speaking
+	}
+	err = v.Speaking(false)
+	if err != nil {
+		log.Fatalf("Error while setting speaking: %s", err)
 	}
 	// Remove current song from queue and replace it with the updated one while clearing status
 	clearStatusAndRemoveCurrentSongFromQueue(ctx)
@@ -298,10 +304,15 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	defer func() {
 		// Remove the 'Playing X' status
 		ctx.Client.Session.UpdateCustomStatus("")
-		err := v.Speaking(false)
+		err = checks.BotInVoice(ctx)
 		if err != nil {
-			fmt.Println("Couldn't stop speaking")
+			recoverBotLeftChannel(ctx) // This should only error when already not speaking
 		}
+		err = v.Speaking(false)
+		if err != nil {
+			log.Fatalf("Error while setting speaking: %s", err)
+		}
+
 		startCleanupProcess(v, ctx, stop, skip)
 	}()
 
@@ -335,6 +346,16 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	}
 }
 
+func recoverBotLeftChannel(ctx *models.Context) {
+	channelID, err := checks.GetUserVoiceChannel(ctx)
+	_, err = ctx.Client.Session.ChannelVoiceJoin(ctx.GuildID, channelID, false, true)
+	if err != nil {
+		fmt.Println(err)
+		ctx.Send("Error joining the voice channel")
+		return
+	}
+}
+
 func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool) {
 
 	file, err := os.Open(filename)
@@ -350,18 +371,26 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	ctx.Client.SetPlayingBool(true)
 
 	// Send "speaking" packet over the voice websocket
-	err = v.Speaking(true)
+	err = checks.BotInVoice(ctx)
 	if err != nil {
-		fmt.Println("Couldn't set speaking")
+		recoverBotLeftChannel(ctx) // This should only error when already not speaking
+	}
+	err = v.Speaking(false)
+	if err != nil {
+		log.Fatalf("Error while setting speaking: %s", err)
 	}
 
 	// Send not "speaking" packet over the websocket when we finish and start the cleanup
 	defer func() {
 		// Remove the 'Playing X' status
 		ctx.Client.Session.UpdateCustomStatus("")
+		err = checks.BotInVoice(ctx)
+		if err != nil {
+			recoverBotLeftChannel(ctx) // This should only error when already not speaking
+		}
 		err := v.Speaking(false)
 		if err != nil {
-			return // This should only error when already not speaking
+			log.Fatalf("Error while setting speaking: %s", err)
 		}
 	}()
 
