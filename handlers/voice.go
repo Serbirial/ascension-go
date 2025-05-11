@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"gobot/models"
 	"io"
+	"os"
 	"os/exec"
 	"strconv"
 	"sync"
@@ -83,6 +84,39 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 	}
 }
 
+// SendDCA will receive on the provied channel then send that to Discordgo
+func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte) {
+	if dca == nil {
+		return
+	}
+
+	var err error
+
+	opusEncoder, err = gopus.NewEncoder(frameRate, channels, gopus.Audio)
+
+	if err != nil {
+		fmt.Println("NewEncoder Error", err)
+		return
+	}
+
+	for {
+
+		// read pcm from chan, exit if channel is closed.
+		dca, ok := <-dca
+		if !ok {
+			fmt.Println("PCM Channel closed")
+			return
+		}
+		if v.Ready == false || v.OpusSend == nil {
+			// fmt.Println(fmt.Sprintf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
+			// Sending errors here might not be suited
+			return
+		}
+		// send encoded opus data to the sendOpus channel
+		v.OpusSend <- dca
+	}
+}
+
 // ReceivePCM will receive on the the Discordgo OpusRecv channel and decode
 // the opus audio into PCM then send it on the provided channel.
 func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
@@ -146,7 +180,7 @@ func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop
 		fmt.Println(ctx.Client.SongQueue[0])
 
 		var song *models.SongInfo = ctx.Client.SongQueue[0]
-		PlayAudioFile(v, ctx, song, song.FilePath, stop, skip)
+		PlayDCAFile(v, ctx, song, song.FilePath, stop, skip)
 	}
 }
 
@@ -294,6 +328,130 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		case send <- data:
 		case <-close:
 			fmt.Println("[Music] End of function")
+		}
+	}
+}
+
+func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool) {
+
+	file, err := os.Open(filename)
+	if err != nil {
+		fmt.Println("Error opening dca file :", err)
+	}
+
+	// Send "playing" message to the channel
+	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
+	// Set status
+	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
+	ctx.Client.SetPlayingBool(true)
+
+	// Send "speaking" packet over the voice websocket
+	err = v.Speaking(true)
+	if err != nil {
+		fmt.Println("Couldn't set speaking")
+	}
+
+	// Send not "speaking" packet over the websocket when we finish and start the cleanup
+	defer func() {
+		// Remove the 'Playing X' status
+		ctx.Client.Session.UpdateCustomStatus("")
+		err := v.Speaking(false)
+		if err != nil {
+			fmt.Println("Couldn't stop speaking")
+		}
+		startCleanupProcess(v, ctx, stop, skip)
+	}()
+
+	send := make(chan []byte, 2)
+	defer close(send)
+
+	close := make(chan bool)
+	go func() {
+		SendDCA(v, send)
+		close <- true
+	}()
+
+	//when stop is sent, set stop bool to true
+	go func() {
+		signal := <-stop
+		fmt.Println("[Music] Received signal")
+		if signal == true {
+			// Remove the 'Playing X' status
+			ctx.Client.Session.UpdateCustomStatus("")
+			fmt.Println("[Music] Stop signal recognized")
+			// Remove current song from queue
+			var temp []*models.SongInfo
+			for i := 0; i < len(ctx.Client.SongQueue); i++ {
+				if i >= 1 {
+					temp = append(temp, ctx.Client.SongQueue[i])
+				}
+			}
+			// Replace queue with updated one
+			ctx.Client.SetQueue(temp)
+			// Set the flag for the loop to recognize
+			close <- true
+			fmt.Println("[Music] Close signal sent")
+		}
+	}()
+
+	//when skip is sent, do the cleanup process so the next song can be played and set the stop bool
+	go func() {
+		signal := <-skip
+		fmt.Println("[Music] Received signal")
+		if signal == true {
+			// Remove the 'Playing X' status
+			ctx.Client.Session.UpdateCustomStatus("")
+			fmt.Println("[Music] Skip signal recognized")
+			close <- true
+			fmt.Println("[Music] Close signal sent")
+			startCleanupProcess(v, ctx, stop, skip)
+		}
+	}()
+
+	var opuslen int16
+
+	for {
+		err = binary.Read(file, binary.LittleEndian, &opuslen)
+		// If this is the end of the file, just return.
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			err := file.Close()
+			if err != nil {
+				fmt.Println("[Music] Error reading from dca file :", err)
+
+			}
+		}
+		if err != nil {
+			fmt.Println("[Music] Error reading from dca file :", err)
+		}
+
+		// Read encoded pcm from dca file.
+		data := make([]byte, opuslen)
+		err = binary.Read(file, binary.LittleEndian, &data)
+		// Should not be any end of file errors
+		if err != nil {
+			fmt.Println("[Music] Error reading from dca file :", err)
+		}
+
+		// Send DCA data
+		select {
+		case send <- data:
+		case <-close:
+			// Remove the 'Playing X' status
+			ctx.Client.Session.UpdateCustomStatus("")
+			fmt.Println("[Music] Close signal recognized")
+			// Remove current song from queue
+			var temp []*models.SongInfo
+			for i := 0; i < len(ctx.Client.SongQueue); i++ {
+				if i >= 1 {
+					temp = append(temp, ctx.Client.SongQueue[i])
+				}
+			}
+			// Replace queue with updated one
+			ctx.Client.SetQueue(temp)
+			// Stop streaming
+			fmt.Println("[Music] DCA Streaming stopped")
+			startCleanupProcess(v, ctx, stop, skip)
+			break
 		}
 	}
 }
