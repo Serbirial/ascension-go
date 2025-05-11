@@ -54,7 +54,7 @@ func DownloadYoutubeURLToFile(url string, folder string) (*models.SongInfo, erro
 		io.Copy(f, downloadResult)
 		fmt.Println("[yt-dlp] Downloaded")
 		// Convert the opus to discord accepted DCA and get the new path
-		filePath = convertToDCA(filePath)
+		_ = convertToDCA(filePath)
 
 	}
 

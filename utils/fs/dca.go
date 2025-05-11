@@ -48,5 +48,11 @@ func convertToDCA(file string) string {
 	}
 
 	log.Printf("[Converter] Successfully wrote DCA file to: %s\n", outputFilePath)
+	// Remove the original file
+	err = os.Remove(file)
+	if err != nil {
+		log.Fatalf("[Converter] failed to remove original file: %v", err)
+
+	}
 	return outputFilePath
 }
