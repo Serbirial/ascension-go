@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,7 +14,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func main() {
+func startBot() {
 	const prefix = "a!"
 	var owners = make([]int, 0)
 	var token = fs.ReadFileWhole("token.txt")
@@ -36,18 +36,26 @@ func main() {
 
 	session.AddHandler(Bot.ProcessMessage)
 
-	fmt.Println("Starting bot...")
+	log.Println("[BOT] Starting...")
 
 	err = session.Open()
 	error.ErrorCheckPanic(err)
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	log.Println("[BOT] Started.")
 	<-sc
 
 	// Cleanly close down the Discord session.
-	fmt.Println("Bot closing...")
+	log.Println("[BOT] Closing...")
 	session.Close()
-	fmt.Println("Bot closed.")
+	log.Println("[BOT] Closed.")
+}
 
+func main() {
+	go startBot()
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	log.Println("[MAIN] Waiting for exit signal.")
+	<-sc
 }
