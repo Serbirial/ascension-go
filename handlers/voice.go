@@ -182,7 +182,6 @@ func removeSongFromQueue(ctx *models.Context) []*models.SongInfo {
 	return temp
 }
 
-
 // This plays the next song in the queue
 func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool) {
 	if len(ctx.Client.SongQueue) >= 1 {
@@ -200,7 +199,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	// Stop speaking
 	err := checks.BotInVoice(ctx)
 	if err != nil {
-		v = recoverBotLeftChannel(ctx) // This should only error when already not speaking
+		v = recoverBotLeftChannel(ctx) // This should only error when the bot leaves pre-maturely
 	}
 	err = v.Speaking(false)
 	if err != nil {
@@ -254,7 +253,6 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	// Set status
 	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
 	ctx.Client.SetPlayingBool(true)
-
 
 	// Create a shell command "object" to run.
 	run := exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
@@ -405,12 +403,12 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	// Send not "speaking" packet over the websocket when we finish and start the cleanup
 	defer func() {
 		// Remove the 'Playing X' status
-		ctx.Client.Session.UpdateCustomStatus("")
-		err = checks.BotInVoice(ctx)
+		err := checks.BotInVoice(ctx)
 		if err != nil {
-			v = recoverBotLeftChannel(ctx) // This should only error when already not speaking
+			v = recoverBotLeftChannel(ctx) // This should only error when the bot leaves pre-maturely
 		}
-		err := v.Speaking(false)
+		ctx.Client.Session.UpdateCustomStatus("")
+		err = v.Speaking(false)
 		if err != nil {
 			log.Fatalf("Error while setting speaking: %s", err)
 		}
