@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"gobot/utils/fs"
+
 	"github.com/bwmarrin/discordgo"
 	"layeh.com/gopus"
 )
@@ -110,7 +112,7 @@ func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte, stop <-chan bool) 
 			log.Println("[DCA] Stop recognized")
 			return
 		case <-time.After(10 * time.Millisecond):
-		case dca, ok := <-dca:
+		case dcaData, ok := <-dca:
 			// read dca from chan, exit if channel is closed.
 			if !ok {
 				log.Println("[DCA] Channel closed")
@@ -122,7 +124,7 @@ func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte, stop <-chan bool) 
 				return
 			}
 			// send encoded opus data to the sendOpus channel
-			v.OpusSend <- dca
+			v.OpusSend <- dcaData
 		}
 	}
 }
@@ -435,6 +437,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	}()
 
 	send := make(chan []byte, 20) // 20 frames can be buffered for sending
+	// setting the buffer too high for `send` MIGHT cause audio overlap when playing the next song in queue
 	defer close(send)
 
 	sendCloseChannel := make(chan bool, 1)
@@ -445,6 +448,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		SendDCA(v, send, sendCloseChannel)
 		closeChannel <- true
 	}()
+	defer close(closeChannel)
 
 	var opuslen int16
 
@@ -508,9 +512,132 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		case data, ok := <-buffer:
 			if !ok {
 				// DCA stream ended
-				log.Println("[Music] DCA buffer empty/closed, ending stream")
+				log.Println("[Music] DCA buffer empty, ending stream")
 				startCleanupProcess(v, ctx, stop, skip)
+				return
+			}
+			select {
+			case send <- data:
+			case <-closeChannel:
+				log.Println("[Music] Close signal recognized during send")
+				// Stop streaming
+				sendCloseChannel <- true
+				log.Println("[Music] DCA Streaming stopped")
+				startCleanupProcess(v, ctx, stop, skip)
+				return
+			}
+		}
+	}
+}
 
+// TODO Play audio from remote server through WS
+func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, stop <-chan bool, skip <-chan bool) {
+
+	// Send "playing" message to the channel
+	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
+	// Set status
+	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
+	ctx.Client.SetPlayingBool(true)
+
+	// Send "speaking" packet over the voice websocket
+	err := checks.BotInVoice(ctx)
+	if err != nil {
+		v = recoverBotLeftChannel(ctx) // This should only error when already not speaking
+		if v == nil {
+			return
+		}
+	}
+	err = v.Speaking(false)
+	if err != nil {
+		log.Fatalf("Error while setting speaking: %s", err)
+	}
+
+	// Send not "speaking" packet over the websocket when we finish and start the cleanup
+	defer func() {
+		// Remove the 'Playing X' status
+		err := checks.BotInVoice(ctx)
+		if err != nil {
+			v = recoverBotLeftChannel(ctx) // This should only error when the bot leaves pre-maturely
+			if v == nil {
+				return
+			}
+		}
+		ctx.Client.Session.UpdateCustomStatus("")
+		err = v.Speaking(false)
+		if err != nil {
+			log.Fatalf("Error while setting speaking: %s", err)
+		}
+	}()
+
+	send := make(chan []byte, 20) // 20 frames can be buffered for sending
+	// setting the buffer too high for `send` MIGHT cause audio overlap when playing the next song in queue
+	defer close(send)
+
+	sendCloseChannel := make(chan bool, 1)
+	defer close(sendCloseChannel)
+
+	closeChannel := make(chan bool, 1)
+	go func() {
+		SendDCA(v, send, sendCloseChannel)
+		closeChannel <- true
+	}()
+	defer close(closeChannel)
+
+	wsBuffer := make(chan []byte, 20)  // 20 frames can be buffered from WS
+	defer close(wsBuffer)              // Close buffer
+	dcaOut := make(chan []byte, 200)   // 200 frames can be buffered from the DCA converter output
+	defer close(dcaOut)                // Close DCA buffer
+	dcaStop := make(chan bool, 1)      // Signal for quitting the converter
+	defer close(dcaStop)               // Close DCA stop channel
+	defer func() { dcaStop <- true }() // Quit converter once done
+
+	go fs.ConvertToDCALive(wsBuffer, dcaOut, dcaStop) // Convert everything in wsBuffer to DCA then put data in dcaOut
+
+	//when stop is sent, set stop bool to true
+	go func() {
+		signal := <-stop
+		log.Println("[Music] Received signal")
+		if signal {
+			log.Println("[Music] Stop signal recognized")
+			closeChannel <- true
+			log.Println("[Music] Buffer closed")
+		}
+	}()
+
+	//when skip is sent, do the cleanup process so the next song can be played and set the stop bool
+	go func() {
+		signal := <-skip
+		log.Println("[Music] Received signal")
+		if signal {
+			log.Println("[Music] Skip signal recognized")
+			closeChannel <- true
+			log.Println("[Music] Buffer closed")
+		}
+	}()
+
+	go func() { // Recv from WS, put in buffer
+		for {
+			data := nil      // Get data from WS
+			wsBuffer <- data // Put data into buffer for conversion to DCA
+
+		}
+		close(wsBuffer) // Signal end of stream
+	}()
+
+	for {
+		select {
+		case <-closeChannel:
+			log.Println("[Music] Close signal recognized")
+			// Stop streaming
+			sendCloseChannel <- true
+			log.Println("[Music] DCA Streaming stopped")
+			startCleanupProcess(v, ctx, stop, skip)
+			return
+		case data, ok := <-dcaOut:
+			if !ok {
+				// DCA stream ended
+				log.Println("[Music] DCA buffer empty, ending stream")
+				startCleanupProcess(v, ctx, stop, skip)
 				return
 			}
 			select {
