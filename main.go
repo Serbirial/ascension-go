@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -14,10 +15,34 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+// Define a struct to hold the CLI arguments
+type CommandLineConfig struct {
+	BotTokenFilePath string
+	BotPrefix        string
+}
+
+func parseFlags() CommandLineConfig {
+	var cfg CommandLineConfig
+
+	// Bind command-line flags to struct fields
+	flag.StringVar(&cfg.BotTokenFilePath, "token", "token.txt", "Path to txt file containing the token. Defaults to `token.txt`.")
+	flag.StringVar(&cfg.BotTokenFilePath, "prefix", "a!", "The prefix the bot uses for commands. Defaults to `a!`.")
+
+	// Parse the flags
+	log.Println("[CLI] Parsing arguments.")
+	flag.Parse()
+	log.Println("[CLI] Bot Token File: " + cfg.BotTokenFilePath)
+	log.Println("[CLI] Bot Prefix: " + cfg.BotPrefix)
+
+	return cfg
+}
+
+var config = parseFlags()
+
 func startBot() {
-	const prefix = "a!"
+	var prefix = config.BotPrefix
 	var owners = make([]int, 0)
-	var token = fs.ReadFileWhole("token.txt")
+	var token = fs.ReadFileWhole(config.BotTokenFilePath)
 	var commandList = make(map[string]models.Command)
 
 	// TODO Un-Hardcode this
