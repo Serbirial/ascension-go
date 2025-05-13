@@ -225,21 +225,22 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 		// Wait 60s to see if activity happens
 		var tries int = 0
 		for {
-			if tries >= 300 {
+			if tries >= 300 { // 300s
 				break
 			}
 			time.Sleep(1 * time.Second)
-			if len(ctx.Client.SongQueue) >= 1 {
+			if len(ctx.Client.SongQueue) >= 1 { // queue is no longer empty
 				log.Println("[Music] Activity in queue")
 				break
 			}
 			tries++
 		}
-		if len(ctx.Client.SongQueue) == 0 {
-			// No activity, Disconnect
-			log.Println("[Music] Disconnecting because no activity and empty queue")
-			v.Disconnect()
-			return
+		if len(ctx.Client.SongQueue) == 0 { // Disconnect after the 300s if the queue is still empty
+			if !ctx.Client.IsDownloading { // Only disconnect if not currently downloading
+				log.Println("[Music] Disconnecting because no activity and empty queue")
+				v.Disconnect()
+				return
+			}
 		}
 	}
 }

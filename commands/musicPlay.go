@@ -49,9 +49,10 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	// If the bot is currently downloading, wait for download to finish before starting next download.
 	for {
 		if ctx.Client.IsDownloading {
+			// keep looping until IsDownloading is false
 			time.Sleep(1 * time.Second)
-
 		} else if !ctx.Client.IsDownloading {
+			// exit the loop and download the song
 			break
 		}
 	}
