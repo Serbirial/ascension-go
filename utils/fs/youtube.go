@@ -1,7 +1,6 @@
 package fs
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,7 +11,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/serbirial/goutubedl"
+	"github.com/kkdai/youtube/v2"
+	//"github.com/serbirial/goutubedl"
 )
 
 const AUDIO_FOLDER string = "audio_temp"
@@ -70,31 +70,40 @@ func DownloadYoutubeURLToFile(rawurl string, folder string) (*models.SongInfo, e
 		return loadSongInfoFromFile(path)
 	}
 
-	goutubeOptions := new(goutubedl.Options)
-	goutubeOptions.DownloadThumbnail = false
-	goutubeOptions.DownloadSubtitles = false
-	goutubeOptions.Downloader = "aria2c"
+	//goutubeOptions := new(goutubedl.Options)
+	//goutubeOptions.DownloadThumbnail = false
+	//goutubeOptions.DownloadSubtitles = false
+	//goutubeOptions.Downloader = "aria2c"
 	fmt.Println("[yt-dlp] Downloading metadata")
-	result, err := goutubedl.New(context.Background(), rawurl, *goutubeOptions)
+	client := youtube.Client{}
+
+	video, err := client.GetVideo(videoID)
+	//result, err := goutubedl.New(context.Background(), rawurl, *goutubeOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
-	filePath := fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, result.Info.ID, FILE_ENDING)
+	filePath := fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, videoID, FILE_ENDING)
 	// check if we havent downloaded and converted it
 	if _, err := os.Stat(filePath); errors.Is(err, os.ErrNotExist) {
 		fmt.Println("[yt-dlp] Downloading video")
-		filePath := fmt.Sprintf("%s/%s", AUDIO_FOLDER, result.Info.ID)
-
-		downloadOptions := new(goutubedl.DownloadOptions)
-		downloadOptions.DownloadAudioOnly = true
-		downloadOptions.AudioFormats = "opus"
-		downloadOptions.Filter = "ba"
-		downloadOptions.PlaylistIndex = 1
-		downloadResult, err := result.DownloadWithOptions(context.Background(), *downloadOptions)
+		filePath := fmt.Sprintf("%s/%s", AUDIO_FOLDER, videoID)
+		client := youtube.Client{}
+		formats := video.Formats.WithAudioChannels().WithAudioChannels() // only get videos with audio
+		stream, _, err := client.GetStream(video, &formats[0])
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer downloadResult.Close()
+		defer stream.Close()
+		//downloadOptions := new(goutubedl.DownloadOptions)
+		//downloadOptions.DownloadAudioOnly = true
+		//downloadOptions.AudioFormats = "opus"
+		//downloadOptions.Filter = "ba"
+		//downloadOptions.PlaylistIndex = 1
+		//downloadResult, err := result.DownloadWithOptions(context.Background(), *downloadOptions)
+		//if err != nil {
+		//	log.Fatal(err)
+		//}
+		//defer downloadResult.Close()
 		f, err := os.Create(filePath)
 		if err != nil {
 			log.Fatal(err)
@@ -104,12 +113,12 @@ func DownloadYoutubeURLToFile(rawurl string, folder string) (*models.SongInfo, e
 		songInfo := models.SongInfo{
 			FilePath: filePath + "." + FILE_ENDING,
 
-			Title:    result.Info.Title,
-			Uploader: result.Info.Uploader,
-			ID:       result.Info.ID,
+			Title:    video.Title,
+			Uploader: video.Author,
+			ID:       videoID,
 		}
-		saveSongInfoToFile(songInfo, fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, result.Info.ID, "json"))
-		io.Copy(f, downloadResult)
+		saveSongInfoToFile(songInfo, fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, videoID, "json"))
+		io.Copy(f, stream)
 		fmt.Println("[yt-dlp] Downloaded")
 
 		// Convert the opus to discord accepted DCA and get the new path
@@ -120,11 +129,11 @@ func DownloadYoutubeURLToFile(rawurl string, folder string) (*models.SongInfo, e
 	songInfo := models.SongInfo{
 		FilePath: filePath,
 
-		Title:    result.Info.Title,
-		Uploader: result.Info.Uploader,
-		ID:       result.Info.ID,
+		Title:    video.Title,
+		Uploader: video.Author,
+		ID:       videoID,
 	}
-	saveSongInfoToFile(songInfo, fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, result.Info.ID, "json"))
+	saveSongInfoToFile(songInfo, fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, videoID, "json"))
 
 	fmt.Println(filePath)
 	if err != nil {
