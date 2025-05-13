@@ -1,7 +1,7 @@
 package models
 
 import (
-	"fmt"
+	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -28,13 +28,13 @@ type LanaBot struct {
 	SkipChannel chan bool
 	SongQueue   []*SongInfo
 
-	IsPlaying bool
-	Token     string
-	Owners    []int
-	Prefix    string
-	Commands  map[string]Command
+	IsPlaying     bool
+	IsDownloading bool
+	Token         string
+	Owners        []int
+	Prefix        string
+	Commands      map[string]Command
 }
-
 
 func (bot *LanaBot) AddToQueue(song *SongInfo) {
 	bot.SongQueue = append(bot.SongQueue, song)
@@ -46,9 +46,11 @@ func (bot *LanaBot) SetQueue(queue []*SongInfo) {
 func (bot *LanaBot) SetPlayingBool(toSet bool) {
 	bot.IsPlaying = toSet
 }
+func (bot *LanaBot) SetDownloadingBool(toSet bool) {
+	bot.IsDownloading = toSet
+}
 
 func (bot *LanaBot) matchArgsToCommand(ctx *Context, argsRaw string) map[string]string {
-
 
 	// Maybe use SplitAfterN
 	var argsSplit = strings.SplitN(argsRaw, " ", len(ctx.CurrentCommand.Args)+1)
@@ -89,7 +91,7 @@ func (bot *LanaBot) ProcessMessage(session *discordgo.Session, message *discordg
 					err := command.Checks[i](ctx)
 					if err != nil {
 						ctx.Send(err.Error())
-						fmt.Println("Check not passed")
+						log.Fatalln("[Bot] Command Check not passed")
 						return
 					}
 				}
@@ -103,7 +105,7 @@ func (bot *LanaBot) ProcessMessage(session *discordgo.Session, message *discordg
 
 func (bot *LanaBot) AddCommands(commands map[string]Command) {
 	for name, command := range commands {
-		fmt.Println("Adding command: " + name)
+		log.Println("[BOT] Adding command: " + name)
 		bot.Commands[name] = command
 	}
 }

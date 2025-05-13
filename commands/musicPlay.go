@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"time"
 
 	"gobot/handlers"
 	"gobot/models"
@@ -45,6 +46,18 @@ func playCommand(ctx *models.Context, args map[string]string) {
 		return
 	}
 
+	// If the bot is currently downloading, wait for download to finish before starting next download.
+	for {
+		if ctx.Client.IsDownloading {
+			time.Sleep(1 * time.Second)
+
+		} else if !ctx.Client.IsDownloading {
+			break
+		}
+	}
+
+	// Set the downloading bool to true
+	ctx.Client.SetDownloadingBool(true)
 	// Download the youtube URL to a file
 	ctx.Send("Downloading...")
 	songInfo, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
@@ -53,18 +66,16 @@ func playCommand(ctx *models.Context, args map[string]string) {
 		ctx.Send("Error with DownloadURL function.")
 		return
 	}
+	// Set the downloading bool back to false
+	ctx.Client.SetDownloadingBool(false)
 
 	// Add the song to the queue
 	ctx.Client.AddToQueue(songInfo)
 
-	// ctx.Client.Session.UpdateCustomStatus("Playing: " + file)
 	// Nothing is playing: start playing song instantly.
 	if ctx.Client.IsPlaying == false {
 		ctx.Client.SetPlayingBool(true)
 		handlers.PlayDCAFile(voice, ctx, songInfo, songInfo.FilePath, ctx.Client.StopChannel, ctx.Client.SkipChannel)
 
 	}
-
-	// Close connections
-	// voice.Close()
 }
