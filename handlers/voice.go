@@ -430,7 +430,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		}
 	}()
 
-	send := make(chan []byte, 200) // 200 frames can be buffered for sending
+	send := make(chan []byte, 20) // 20 frames can be buffered for sending
 	defer close(send)
 
 	sendCloseChannel := make(chan bool, 1)
@@ -445,7 +445,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	var opuslen int16
 
 	// File reader
-	buffer := make(chan []byte, 100) // 100 frames can be buffered from the file
+	buffer := make(chan []byte, 200) // 200 frames can be buffered from the file
 
 	//when stop is sent, set stop bool to true
 	go func() {
