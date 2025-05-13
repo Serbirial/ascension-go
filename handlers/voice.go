@@ -200,6 +200,9 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	err := checks.BotInVoice(ctx)
 	if err != nil {
 		v = recoverBotLeftChannel(ctx) // This should only error when the bot leaves pre-maturely
+		if v == nil {
+			return
+		}
 	}
 	err = v.Speaking(false)
 	if err != nil {
@@ -325,6 +328,9 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 		err = checks.BotInVoice(ctx)
 		if err != nil {
 			v = recoverBotLeftChannel(ctx) // This should only error when already not speaking
+			if v == nil {
+				return
+			}
 		}
 		err = v.Speaking(false)
 		if err != nil {
@@ -367,6 +373,10 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 
 func recoverBotLeftChannel(ctx *models.Context) *discordgo.VoiceConnection {
 	channelID, err := checks.GetUserVoiceChannel(ctx)
+	if err != nil {
+		ctx.Send("User left the voice channel")
+		return nil
+	}
 	v, err := ctx.Client.Session.ChannelVoiceJoin(ctx.GuildID, channelID, false, true)
 	if err != nil {
 		fmt.Println(err)
@@ -394,6 +404,9 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	err = checks.BotInVoice(ctx)
 	if err != nil {
 		v = recoverBotLeftChannel(ctx) // This should only error when already not speaking
+		if v == nil {
+			return
+		}
 	}
 	err = v.Speaking(false)
 	if err != nil {
@@ -406,6 +419,9 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		err := checks.BotInVoice(ctx)
 		if err != nil {
 			v = recoverBotLeftChannel(ctx) // This should only error when the bot leaves pre-maturely
+			if v == nil {
+				return
+			}
 		}
 		ctx.Client.Session.UpdateCustomStatus("")
 		err = v.Speaking(false)
