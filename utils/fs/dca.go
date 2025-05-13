@@ -1,6 +1,8 @@
 package fs
 
 import (
+	"encoding/binary"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -55,4 +57,81 @@ func convertToDCA(file string) string {
 
 	}
 	return outputFilePath
+}
+
+func ConvertToDCALive(in chan []byte, out chan []byte, stop chan bool) {
+	// Set up dca command, reading from ffmpegOut and writing to file
+	dca := exec.Command("/home/summers/dca", "-ab", "128") // ab is bitrate
+	defer dca.Process.Kill()
+
+	pipeOut, pipeIn, err := os.Pipe()
+	if err != nil {
+		log.Fatalf("[Converter] Failed to make DCA live pipe: %v", err)
+
+	}
+	dca.Stdin = pipeIn
+	dca.Stdout = pipeOut
+	defer pipeIn.Close()
+	defer pipeOut.Close()
+
+	var shouldStop = false
+
+	// Write to dca.Stdin (PCM data)
+	go func() {
+		for {
+			if shouldStop {
+				return
+			}
+			data, ok := <-in
+			if !ok {
+				log.Println("DCA Converter Channel closed")
+				return
+			}
+			_, err := pipeIn.Write(data)
+			if err != nil {
+				log.Println("DCA Converter had error during pipe write: " + err.Error())
+				return
+			}
+		}
+	}()
+
+	// Read from dca.Stdout and send processed DCA data to out
+	go func() {
+		var opuslen int16
+
+		for {
+			if shouldStop {
+				return
+			}
+			err := binary.Read(pipeOut, binary.LittleEndian, &opuslen)
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				break
+			}
+			if err != nil {
+				log.Println("[Converter] Error reading frame length:", err)
+				break
+			}
+			data := make([]byte, opuslen)
+			err = binary.Read(pipeOut, binary.LittleEndian, &data)
+			if err != nil {
+				log.Println("[Converter] Error reading frame data:", err)
+				break
+			}
+			out <- data
+		}
+	}()
+
+	// Start dca
+	if err := dca.Start(); err != nil {
+		log.Fatalf("[Converter] Failed to start dca: %v", err)
+	}
+
+	select {
+	case <-stop:
+		shouldStop = true
+		dca.Process.Kill()
+		log.Printf("[Converter] Done converting DCA Live")
+		return
+	}
+
 }
