@@ -108,7 +108,7 @@ func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte, stop <-chan bool) 
 		select {
 		case <-stop:
 			log.Println("[DCA] Stop recognized")
-			break
+			return
 		case <-time.After(10 * time.Millisecond):
 		case dca, ok := <-dca:
 			// read dca from chan, exit if channel is closed.
