@@ -39,8 +39,8 @@ type LanaBot struct {
 	Commands      map[string]Command
 }
 
-func (bot *LanaBot) ConnectToWS(url string) {
-	ws, err := websocket.Dial(url, "", "")
+func (bot *LanaBot) ConnectToWS(url string, origin string) {
+	ws, err := websocket.Dial(url, "", origin)
 	if err != nil {
 		panic("CANT CONNECT TO WS SERVER: " + err.Error())
 	}

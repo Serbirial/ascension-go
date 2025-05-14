@@ -89,7 +89,7 @@ func startBot() {
 	err = session.Open()
 	error.ErrorCheckPanic(err)
 
-	Bot.ConnectToWS("ws://localhost:8182/ws")
+	Bot.ConnectToWS("ws://localhost:8182/ws", "http://localhost/")
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
