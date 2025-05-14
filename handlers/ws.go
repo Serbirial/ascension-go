@@ -42,6 +42,9 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool) {
 	}
 	defer file.Close()
 	var opuslen int16
+	var frameBufPool = sync.Pool{
+		New: func() any { return make([]byte, 2048) }, // max expected opus frame
+	}
 
 	for {
 		select {
@@ -58,18 +61,25 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool) {
 				return
 			}
 
-			data := make([]byte, opuslen)
-			err = binary.Read(file, binary.LittleEndian, &data)
+			buf := frameBufPool.Get().([]byte)
+			if int(opuslen) > cap(buf) {
+				buf = make([]byte, opuslen) // rare case fallback
+			}
+			frame := buf[:opuslen]
+
+			err = binary.Read(file, binary.LittleEndian, &frame)
 			if err != nil {
 				log.Println("[WS] Error reading frame data:", err)
 				return
 			}
 
-			err = websocket.Message.Send(ws, data)
+			err = websocket.Message.Send(ws, frame)
 			if err != nil {
 				log.Println("[WS] Error sending data:", err)
 				return
 			}
+			frameBufPool.Put(buf)
+
 		}
 
 	}
@@ -103,10 +113,15 @@ func HandleWebSocket(ws *websocket.Conn) {
 
 		// Process stop
 		if msg.Stop {
+			clientsMu.Lock()
+			delete(Clients, ws)
+			clientsMu.Unlock()
+
 			loopsMu.Lock()
-			channel := Loops[ws]
-			channel <- true
-			delete(Loops, ws)
+			if stop, ok := Loops[ws]; ok {
+				stop <- true
+				delete(Loops, ws)
+			}
 			loopsMu.Unlock()
 		} else if msg.URL != "" {
 			data, err := fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
@@ -126,6 +141,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 			}
 			loopsMu.Lock()
 			stopChannel := make(chan bool, 1)
+			defer close(stopChannel)
 			go sendByteData(ws, msg, stopChannel)
 			Loops[ws] = stopChannel
 			loopsMu.Unlock()
