@@ -502,6 +502,8 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 			if !ok {
 				// DCA stream ended
 				log.Println("[Music] DCA buffer empty, ending stream")
+				close(send)
+
 				startCleanupProcess(v, ctx, stop, skip)
 				return
 			}
