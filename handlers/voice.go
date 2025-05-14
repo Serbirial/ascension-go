@@ -429,23 +429,27 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 
 	//when stop is sent, set stop bool to true
 	go func() {
-		signal := <-stop
+		signal, ok := <-stop
 		log.Println("[Music] Received signal")
-		if signal {
-			log.Println("[Music] Stop signal recognized")
-			closeChannel <- true
-			log.Println("[Music] Buffer closed")
+		if ok {
+			if signal {
+				log.Println("[Music] Stop signal recognized")
+				closeChannel <- true
+				log.Println("[Music] Buffer closed")
+			}
 		}
 	}()
 
 	//when skip is sent, do the cleanup process so the next song can be played and set the stop bool
 	go func() {
-		signal := <-skip
+		signal, ok := <-skip
 		log.Println("[Music] Received signal")
-		if signal {
-			log.Println("[Music] Skip signal recognized")
-			closeChannel <- true
-			log.Println("[Music] Buffer closed")
+		if ok {
+			if signal {
+				log.Println("[Music] Skip signal recognized")
+				closeChannel <- true
+				log.Println("[Music] Buffer closed")
+			}
 		}
 	}()
 
@@ -487,7 +491,6 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 			if !ok {
 				// DCA stream ended
 				log.Println("[Music] DCA buffer empty, ending stream")
-				close(send)
 
 				startCleanupProcess(v, ctx, stop, skip)
 				return
@@ -497,7 +500,6 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 			case <-closeChannel:
 				log.Println("[Music] Close signal recognized during send")
 				// Stop streaming
-				close(send)
 				log.Println("[Music] DCA Stream channel closed")
 				startCleanupProcess(v, ctx, stop, skip)
 				return
