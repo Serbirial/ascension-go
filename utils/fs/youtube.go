@@ -84,7 +84,7 @@ func DownloadYoutubeURLToFile(rawurl string, folder string) (*models.SongInfo, e
 		log.Println("[yt-dlp] Downloading video")
 		filePath := fmt.Sprintf("%s/%s", AUDIO_FOLDER, videoID)
 		client := youtube.Client{}
-		formats := video.Formats.WithAudioChannels().WithAudioChannels() // only get videos with audio
+		formats := video.Formats.WithAudioChannels() // only get videos with audio
 		stream, _, err := client.GetStream(video, &formats[0])
 		if err != nil {
 			log.Fatal(err)
