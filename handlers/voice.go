@@ -172,8 +172,10 @@ func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop
 		fmt.Println(ctx.Client.SongQueue)
 		fmt.Println(ctx.Client.SongQueue[0])
 
-		var song *models.SongInfo = ctx.Client.SongQueue[0]
-		PlayDCAFile(v, ctx, song, song.FilePath, stop, skip)
+		var data *models.SongInfo = ctx.Client.SongQueue[0]
+		song := ctx.Client.SendDownloadToWS(data.ID)
+
+		PlayFromWS(v, ctx, song, stop, skip)
 	}
 }
 

@@ -23,6 +23,13 @@ const (
 		discordgo.IntentsGuilds
 )
 
+type SongInfoWs struct {
+	FilePath string `json:"FilePath"`
+	Title    string `json:"Title"`
+	Uploader string `json:"Uploader"`
+	ID       string `json:"ID"`
+}
+
 type LanaBot struct {
 	Session   *discordgo.Session
 	WebSocket *websocket.Conn
@@ -62,21 +69,31 @@ func (bot *LanaBot) ConnectToWS(url string, origin string) {
 
 }
 
-func (bot *LanaBot) SendURLToWS(url string) {
+func (bot *LanaBot) SendDownloadToWS(url string) *SongInfo {
 	msg := Message{
 		From: bot.Session.State.Application.Name,
 		URL:  "url",
 		Stop: false,
 	}
-	jsonData, err := json.Marshal(msg)
+	jsonDataSend, err := json.Marshal(msg)
 	if err != nil {
 		log.Fatal("JSON Marshal error:", err)
 	}
-	err = websocket.Message.Send(bot.WebSocket, jsonData)
+	err = websocket.Message.Send(bot.WebSocket, jsonDataSend)
 	if err != nil {
 		log.Fatal("Error while establishing connection:", err)
 		panic("CANT CONNECT TO WS! CANT SEND URL!")
 	}
+	var jsonDataRecv []byte
+	if err := websocket.Message.Receive(bot.WebSocket, &jsonDataRecv); err != nil {
+		log.Fatalf("Failed to receive: %v", err)
+	}
+
+	var song SongInfo
+	if err := json.Unmarshal(jsonDataRecv, &song); err != nil {
+		log.Fatalf("Failed to decode JSON: %v", err)
+	}
+	return &song
 
 }
 func (bot *LanaBot) SendStopToWS(url string) {

@@ -107,6 +107,8 @@ func HandleWebSocket(ws *websocket.Conn) {
 		// Set client's name if first message
 		clientsMu.Lock()
 		if Clients[ws].Name == "" {
+			log.Println("[WS] SetName: ", msg.From)
+
 			Clients[ws].Name = msg.From
 		}
 		clientsMu.Unlock()
