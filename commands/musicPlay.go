@@ -73,6 +73,8 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	// Add the song to the queue
 	ctx.Client.AddToQueue(songInfo)
 
+	ctx.Send("Added `" + songInfo.Title + "` to queue")
+
 	// Nothing is playing: start playing song instantly.
 	if ctx.Client.IsPlaying == false {
 		ctx.Client.SetPlayingBool(true)
