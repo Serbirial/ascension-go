@@ -59,7 +59,7 @@ func startWS() {
 	http.Handle("/ws", websocket.Handler(handlers.HandleWebSocket))
 
 	fmt.Println("WebSocket server running on :8182")
-	log.Fatal(http.ListenAndServe(":8182", nil))
+	log.Fatal(http.ListenAndServe("localhost:8182", nil))
 }
 
 func startBot() {
