@@ -562,12 +562,9 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	// setting the buffer too high for `send` MIGHT cause audio overlap when playing the next song in queue
 	defer close(send)
 
-	sendCloseChannel := make(chan bool, 1)
-	defer close(sendCloseChannel)
-
 	closeChannel := make(chan bool, 1)
 	go func() {
-		SendDCA(v, send, sendCloseChannel)
+		SendDCA(v, send)
 		closeChannel <- true
 	}()
 	defer close(closeChannel)
@@ -612,7 +609,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 		case <-closeChannel:
 			log.Println("[Music] Close signal recognized")
 			// Stop WS/Stream
-			sendCloseChannel <- true
+			close(send)
 			wsStop <- true
 			log.Println("[Music] DCA Streaming stopped")
 			startCleanupProcess(v, ctx, stop, skip)
@@ -631,7 +628,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 			case <-closeChannel:
 				log.Println("[Music] Close signal recognized during send")
 				// Stop WS/Stream
-				sendCloseChannel <- true
+				close(send)
 				wsStop <- true
 				log.Println("[Music] DCA Streaming stopped")
 				startCleanupProcess(v, ctx, stop, skip)
