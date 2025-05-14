@@ -435,6 +435,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	closeChannel := make(chan bool, 1)
 	go func() {
 		SendDCA(v, send)
+		// Code is not needed, once `send` is closed it will recognize that and close itself.
 		//closeChannel <- true
 	}()
 	defer close(closeChannel)
