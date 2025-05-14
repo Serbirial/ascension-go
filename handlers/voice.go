@@ -22,8 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"gobot/utils/fs"
-
 	"github.com/bwmarrin/discordgo"
 	"layeh.com/gopus"
 )
@@ -48,8 +46,8 @@ var (
 
 // OnError gets called by dgvoice when an error is encountered.
 // By default logs to STDERR
-var OnError = func(str string, err error) {
-	prefix := "Music: " + str
+var OnError = func(prefix string, str string, err error) {
+	prefix = prefix + ": " + str
 
 	if err != nil {
 		fmt.Println(prefix + ": " + err.Error())
@@ -71,7 +69,7 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 	opusEncoder, err = gopus.NewEncoder(frameRate, channels, gopus.Audio)
 
 	if err != nil {
-		OnError("NewEncoder Error", err)
+		OnError("[Music]", "NewEncoder Error", err)
 		return
 	}
 
@@ -80,18 +78,18 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 		// read pcm from chan, exit if channel is closed.
 		recv, ok := <-pcm
 		if !ok {
-			OnError("PCM Channel closed", nil)
+			OnError("[Music]", "PCM Channel closed", nil)
 			return
 		}
 		// try encoding pcm frame with Opus
 		opus, err := opusEncoder.Encode(recv, frameSize, maxBytes)
 		if err != nil {
-			OnError("Encoding Error", err)
+			OnError("[Music]", "Encoding Error", err)
 			return
 		}
 
 		if v.Ready == false || v.OpusSend == nil {
-			// OnError(fmt.Sprintf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
+			// OnError("[Music]",fmt.Sprintf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
 			// Sending errors here might not be suited
 			return
 		}
@@ -140,7 +138,7 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 
 	for {
 		if v.Ready == false || v.OpusRecv == nil {
-			OnError(fmt.Sprintf("Discordgo not to receive opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
+			OnError("[Music]", fmt.Sprintf("Discordgo not to receive opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
 			return
 		}
 
@@ -157,14 +155,14 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 		if !ok {
 			speakers[p.SSRC], err = gopus.NewDecoder(48000, 2)
 			if err != nil {
-				OnError("error creating opus decoder", err)
+				OnError("[Music]", "error creating opus decoder", err)
 				continue
 			}
 		}
 
 		p.PCM, err = speakers[p.SSRC].Decode(p.Opus, 960, false)
 		if err != nil {
-			OnError("Error decoding opus data", err)
+			OnError("[Music]", "Error decoding opus data", err)
 			continue
 		}
 
@@ -267,7 +265,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	run := exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
 	ffmpegout, err := run.StdoutPipe()
 	if err != nil {
-		OnError("StdoutPipe Error", err)
+		OnError("[Music]", "StdoutPipe Error", err)
 		return
 	}
 
@@ -276,7 +274,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	// Starts the ffmpeg command
 	err = run.Start()
 	if err != nil {
-		OnError("RunStart Error", err)
+		OnError("[Music]", "RunStart Error", err)
 		return
 	}
 
@@ -324,7 +322,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	// Send "speaking" packet over the voice websocket
 	err = v.Speaking(true)
 	if err != nil {
-		OnError("Couldn't set speaking", err)
+		OnError("[Music]", "Couldn't set speaking", err)
 	}
 
 	// Send not "speaking" packet over the websocket when we finish and start the cleanup
@@ -364,7 +362,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 			return
 		}
 		if err != nil {
-			OnError("error reading from ffmpeg stdout", err)
+			OnError("[Music]", "error reading from ffmpeg stdout", err)
 			return
 		}
 
@@ -583,15 +581,18 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	}()
 	defer close(closeChannel)
 
-	wsBuffer := make(chan []byte, 20)  // 20 frames can be buffered from WS
+	wsBuffer := make(chan []byte, 200) // 200 frames can be buffered from WS
 	defer close(wsBuffer)              // Close buffer
-	dcaOut := make(chan []byte, 200)   // 200 frames can be buffered from the DCA converter output
-	defer close(dcaOut)                // Close DCA buffer
-	dcaStop := make(chan bool, 1)      // Signal for quitting the converter
-	defer close(dcaStop)               // Close DCA stop channel
-	defer func() { dcaStop <- true }() // Quit converter once done
-
-	go fs.ConvertToDCALive(wsBuffer, dcaOut, dcaStop) // Convert everything in wsBuffer to DCA then put data in dcaOut
+	wsStop := make(chan bool, 1)       // Signal for quitting the WS receiver
+	defer func() { wsStop <- true }()  // Stop the WS receiver once done
+	defer close(wsStop)                // Close WS stop
+	//dcaOut := make(chan []byte, 200)                        // 200 frames can be buffered from the DCA converter output
+	//defer close(dcaOut)                                     // Close DCA buffer
+	//dcaStop := make(chan bool, 1)                           // Signal for quitting the converter
+	//defer func() { dcaStop <- true }()                      // Quit converter once done
+	//defer close(dcaStop)                                    // Close DCA stop channel
+	//go fs.ConvertToDCALive(wsBuffer, dcaOut, dcaStop)       // Convert everything in wsBuffer to DCA then put data in dcaOut
+	go RecvByteData(ctx.Client.WebSocket, wsBuffer, wsStop) // Start receiving PCM data from WS
 
 	//when stop is sent, set stop bool to true
 	go func() {
@@ -615,27 +616,21 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 		}
 	}()
 
-	go func() { // Recv from WS, put in buffer
-		for {
-			data := nil      // Get data from WS
-			wsBuffer <- data // Put data into buffer for conversion to DCA
-
-		}
-		close(wsBuffer) // Signal end of stream
-	}()
-
 	for {
 		select {
 		case <-closeChannel:
 			log.Println("[Music] Close signal recognized")
-			// Stop streaming
+			// Stop WS/Stream
 			sendCloseChannel <- true
+			wsStop <- true
 			log.Println("[Music] DCA Streaming stopped")
 			startCleanupProcess(v, ctx, stop, skip)
 			return
-		case data, ok := <-dcaOut:
+		case data, ok := <-wsBuffer:
 			if !ok {
 				// DCA stream ended
+				wsStop <- true
+
 				log.Println("[Music] DCA buffer empty, ending stream")
 				startCleanupProcess(v, ctx, stop, skip)
 				return
@@ -644,8 +639,9 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 			case send <- data:
 			case <-closeChannel:
 				log.Println("[Music] Close signal recognized during send")
-				// Stop streaming
+				// Stop WS/Stream
 				sendCloseChannel <- true
+				wsStop <- true
 				log.Println("[Music] DCA Streaming stopped")
 				startCleanupProcess(v, ctx, stop, skip)
 				return

@@ -1,10 +1,12 @@
 package models
 
 import (
+	"encoding/json"
 	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"golang.org/x/net/websocket"
 )
 
 const (
@@ -22,7 +24,8 @@ const (
 )
 
 type LanaBot struct {
-	Session *discordgo.Session
+	Session   *discordgo.Session
+	WebSocket *websocket.Conn
 
 	StopChannel chan bool
 	SkipChannel chan bool
@@ -34,6 +37,29 @@ type LanaBot struct {
 	Owners        []int
 	Prefix        string
 	Commands      map[string]Command
+}
+
+func (bot *LanaBot) ConnectToWS(url string, origin string) {
+	ws, err := websocket.Dial(url, "", origin)
+	if err != nil {
+		panic("CANT CONNECT TO WS SERVER!")
+	}
+	bot.WebSocket = ws
+	msg := Message{
+		From: bot.Session.State.Application.Name,
+		URL:  "",
+		Stop: false,
+	}
+	jsonData, err := json.Marshal(msg)
+	if err != nil {
+		log.Fatal("JSON Marshal error:", err)
+	}
+	err = websocket.Message.Send(ws, jsonData)
+	if err != nil {
+		log.Fatal("Error while establishing connection:", err)
+		panic("CANT CONNECT TO WS! CANT SEND NAME!")
+	}
+
 }
 
 func (bot *LanaBot) AddToQueue(song *SongInfo) {

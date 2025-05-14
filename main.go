@@ -2,17 +2,21 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"gobot/commands"
 	"gobot/error"
+	"gobot/handlers"
 	"gobot/models"
 	"gobot/utils/fs"
 
 	"github.com/bwmarrin/discordgo"
+	"golang.org/x/net/websocket"
 )
 
 // Define a struct to hold the CLI arguments
@@ -38,6 +42,13 @@ func parseFlags() CommandLineConfig {
 }
 
 var config = parseFlags()
+
+func startWS() {
+	http.Handle("/ws", websocket.Handler(handlers.HandleWebSocket))
+
+	fmt.Println("WebSocket server running on :8182")
+	log.Fatal(http.ListenAndServe(":8182", nil))
+}
 
 func startBot() {
 	var prefix = config.BotPrefix
