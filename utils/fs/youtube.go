@@ -64,7 +64,7 @@ func DownloadYoutubeURLToFile(rawurl string, folder string) (*models.SongInfo, e
 		return nil, fmt.Errorf("no video ID found in URL")
 	}
 	path := fmt.Sprintf("%s/%s.json", AUDIO_FOLDER, videoID)
-	fmt.Println("Looking for metadata at " + path)
+	log.Println("Looking for metadata at " + path)
 
 	if _, err := os.Stat(path); err == nil {
 		return loadSongInfoFromFile(path)
@@ -74,7 +74,7 @@ func DownloadYoutubeURLToFile(rawurl string, folder string) (*models.SongInfo, e
 	//goutubeOptions.DownloadThumbnail = false
 	//goutubeOptions.DownloadSubtitles = false
 	//goutubeOptions.Downloader = "aria2c"
-	fmt.Println("[yt-dlp] Downloading metadata")
+	log.Println("[yt-dlp] Downloading metadata")
 	client := youtube.Client{}
 
 	video, err := client.GetVideo(videoID)
@@ -85,7 +85,7 @@ func DownloadYoutubeURLToFile(rawurl string, folder string) (*models.SongInfo, e
 	filePath := fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, videoID, FILE_ENDING)
 	// check if we havent downloaded and converted it
 	if _, err := os.Stat(filePath); errors.Is(err, os.ErrNotExist) {
-		fmt.Println("[yt-dlp] Downloading video")
+		log.Println("[yt-dlp] Downloading video")
 		filePath := fmt.Sprintf("%s/%s", AUDIO_FOLDER, videoID)
 		client := youtube.Client{}
 		formats := video.Formats.WithAudioChannels().WithAudioChannels() // only get videos with audio
@@ -119,7 +119,7 @@ func DownloadYoutubeURLToFile(rawurl string, folder string) (*models.SongInfo, e
 		}
 		saveSongInfoToFile(songInfo, fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, videoID, "json"))
 		io.Copy(f, stream)
-		fmt.Println("[yt-dlp] Downloaded")
+		log.Println("[yt-dlp] Downloaded")
 
 		// Convert the opus to discord accepted DCA and get the new path
 		_ = convertToDCA(filePath)
