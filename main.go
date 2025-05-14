@@ -3,8 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -15,6 +13,10 @@ import (
 	"gobot/handlers"
 	"gobot/models"
 	"gobot/utils/fs"
+
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/bwmarrin/discordgo"
 	"golang.org/x/net/websocket"
@@ -47,6 +49,11 @@ func parseFlags() CommandLineConfig {
 }
 
 var config = parseFlags()
+
+func startProfiler() {
+	log.Println("Starting pprof server at :6060")
+	log.Println(http.ListenAndServe("localhost:6060", nil))
+}
 
 func startWS() {
 	http.Handle("/ws", websocket.Handler(handlers.HandleWebSocket))
@@ -95,6 +102,7 @@ func startBot() {
 
 func main() {
 	go startBot()
+	go startProfiler()
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	log.Println("[MAIN] Waiting for exit signal.")
