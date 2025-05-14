@@ -52,8 +52,12 @@ func (bot *LanaBot) ConnectToWS(url string, origin string) {
 		panic("CANT CONNECT TO WS SERVER: " + err.Error())
 	}
 	bot.WebSocket = ws
+	me, err := bot.Session.User("@me")
+	if err != nil {
+		panic("error getting self")
+	}
 	msg := Message{
-		From: bot.Session.State.Application.Name,
+		From: me.GlobalName,
 		URL:  "",
 		Stop: false,
 	}
@@ -70,8 +74,12 @@ func (bot *LanaBot) ConnectToWS(url string, origin string) {
 }
 
 func (bot *LanaBot) SendDownloadToWS(url string) *SongInfo {
+	me, err := bot.Session.User("@me")
+	if err != nil {
+		panic("error getting self")
+	}
 	msg := Message{
-		From: bot.Session.State.Application.Name,
+		From: me.GlobalName,
 		URL:  "url",
 		Stop: false,
 	}
@@ -97,8 +105,12 @@ func (bot *LanaBot) SendDownloadToWS(url string) *SongInfo {
 
 }
 func (bot *LanaBot) SendStopToWS(url string) {
+	me, err := bot.Session.User("@me")
+	if err != nil {
+		panic("error getting self")
+	}
 	msg := Message{
-		From: bot.Session.State.Application.Name,
+		From: me.GlobalName,
 		URL:  "",
 		Stop: true,
 	}
