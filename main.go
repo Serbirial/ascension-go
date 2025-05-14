@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"gobot/commands"
@@ -23,6 +24,8 @@ import (
 type CommandLineConfig struct {
 	BotTokenFilePath string
 	BotPrefix        string
+
+	UseDCA bool
 }
 
 func parseFlags() CommandLineConfig {
@@ -30,13 +33,15 @@ func parseFlags() CommandLineConfig {
 
 	// Bind command-line flags to struct fields
 	flag.StringVar(&cfg.BotTokenFilePath, "token", "token.txt", "Path to txt file containing the token. Defaults to `token.txt`.")
-	flag.StringVar(&cfg.BotTokenFilePath, "prefix", "a!", "The prefix the bot uses for commands. Defaults to `a!`.")
+	flag.StringVar(&cfg.BotPrefix, "prefix", "a!", "The prefix the bot uses for commands. Defaults to `a!`.")
+	flag.BoolVar(&cfg.UseDCA, "useDCA", false, "Tells the bot to use DCA audio only (WILL BYPASS USING EXTERNAL SERVER)")
 
 	// Parse the flags
 	log.Println("[CLI] Parsing arguments.")
 	flag.Parse()
 	log.Println("[CLI] Bot Token File: " + cfg.BotTokenFilePath)
 	log.Println("[CLI] Bot Prefix: " + cfg.BotPrefix)
+	log.Println("[CLI] Using DCA: " + strconv.FormatBool(cfg.UseDCA))
 
 	return cfg
 }
