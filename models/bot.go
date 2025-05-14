@@ -39,8 +39,8 @@ type LanaBot struct {
 	Commands      map[string]Command
 }
 
-func (bot *LanaBot) ConnectToWS(url string, origin string) {
-	ws, err := websocket.Dial(url, "", origin)
+func (bot *LanaBot) ConnectToWS(url string) {
+	ws, err := websocket.Dial(url, "", "")
 	if err != nil {
 		panic("CANT CONNECT TO WS SERVER!")
 	}
@@ -58,6 +58,41 @@ func (bot *LanaBot) ConnectToWS(url string, origin string) {
 	if err != nil {
 		log.Fatal("Error while establishing connection:", err)
 		panic("CANT CONNECT TO WS! CANT SEND NAME!")
+	}
+
+}
+
+func (bot *LanaBot) SendURLToWS(url string) {
+	msg := Message{
+		From: bot.Session.State.Application.Name,
+		URL:  "url",
+		Stop: false,
+	}
+	jsonData, err := json.Marshal(msg)
+	if err != nil {
+		log.Fatal("JSON Marshal error:", err)
+	}
+	err = websocket.Message.Send(bot.WebSocket, jsonData)
+	if err != nil {
+		log.Fatal("Error while establishing connection:", err)
+		panic("CANT CONNECT TO WS! CANT SEND URL!")
+	}
+
+}
+func (bot *LanaBot) SendStopToWS(url string) {
+	msg := Message{
+		From: bot.Session.State.Application.Name,
+		URL:  "",
+		Stop: true,
+	}
+	jsonData, err := json.Marshal(msg)
+	if err != nil {
+		log.Fatal("JSON Marshal error:", err)
+	}
+	err = websocket.Message.Send(bot.WebSocket, jsonData)
+	if err != nil {
+		log.Fatal("Error while establishing connection:", err)
+		panic("CANT CONNECT TO WS! CANT SEND URL!")
 	}
 
 }

@@ -89,6 +89,8 @@ func startBot() {
 	err = session.Open()
 	error.ErrorCheckPanic(err)
 
+	Bot.ConnectToWS("ws://localhost:8182/ws")
+
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	log.Println("[BOT] Started.")
@@ -103,6 +105,7 @@ func startBot() {
 func main() {
 	go startBot()
 	go startProfiler()
+	go startWS()
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	log.Println("[MAIN] Waiting for exit signal.")
