@@ -173,7 +173,10 @@ func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop
 		fmt.Println(ctx.Client.SongQueue[0])
 
 		var data *models.SongInfo = ctx.Client.SongQueue[0]
-		song := ctx.Client.SendDownloadToWS(data.ID)
+
+		youtubeURL := "https://www.youtube.com/watch?v=" + data.ID
+
+		song := ctx.Client.SendDownloadToWS(youtubeURL)
 
 		PlayFromWS(v, ctx, song, stop, skip)
 	}
