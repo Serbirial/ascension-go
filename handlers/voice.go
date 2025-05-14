@@ -390,7 +390,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 			return
 		}
 	}
-	err = v.Speaking(false)
+	err = v.Speaking(true)
 	if err != nil {
 		log.Fatalf("Error while setting speaking: %s", err)
 	}
