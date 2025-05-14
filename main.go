@@ -51,8 +51,8 @@ func parseFlags() CommandLineConfig {
 var config = parseFlags()
 
 func startProfiler() {
-	log.Println("Starting pprof server at :6060")
-	log.Println(http.ListenAndServe("localhost:6060", nil))
+	log.Println("[PROFILER] Starting pprof server at :6060")
+	log.Println("[PROFILER]", http.ListenAndServe("0.0.0.0:6060", nil))
 }
 
 func startWS() {
