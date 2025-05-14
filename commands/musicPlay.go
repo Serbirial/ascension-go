@@ -7,6 +7,7 @@ import (
 	"gobot/handlers"
 	"gobot/models"
 	"gobot/utils/checks"
+	"gobot/utils/fs"
 )
 
 const AUDIO_FOLDER string = "audio_temp"
@@ -60,13 +61,10 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	ctx.Client.SetDownloadingBool(true)
 	// Download the youtube URL to a file
 	ctx.Send("Downloading...")
-
-	songInfo := ctx.Client.SendDownloadToWS(args["url"])
-
-	//songInfo, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
+	songInfo, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
 	if err != nil {
 		fmt.Println(err)
-		ctx.Send("Error community with WS.")
+		ctx.Send("Error with DownloadURL function.")
 		return
 	}
 	// Set the downloading bool back to false
@@ -78,9 +76,7 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	// Nothing is playing: start playing song instantly.
 	if ctx.Client.IsPlaying == false {
 		ctx.Client.SetPlayingBool(true)
-		handlers.PlayFromWS(voice, ctx, songInfo, ctx.Client.StopChannel, ctx.Client.SkipChannel)
-		ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
-	} else {
-		ctx.Send("Added `" + songInfo.Title + "` to queue")
+		handlers.PlayDCAFile(voice, ctx, songInfo, songInfo.FilePath, ctx.Client.StopChannel, ctx.Client.SkipChannel)
+
 	}
 }
