@@ -103,9 +103,9 @@ func startBot() {
 }
 
 func main() {
-	go startBot()
 	go startProfiler()
 	go startWS()
+	go startBot()
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	log.Println("[MAIN] Waiting for exit signal.")
