@@ -80,7 +80,7 @@ func (bot *LanaBot) SendDownloadToWS(url string) *SongInfo {
 	}
 	msg := Message{
 		From: me.GlobalName,
-		URL:  "url",
+		URL:  url,
 		Stop: false,
 	}
 	jsonDataSend, err := json.Marshal(msg)
