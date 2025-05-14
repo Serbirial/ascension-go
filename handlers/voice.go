@@ -13,6 +13,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"gobot/models"
+	"gobot/utils/arrays"
 	"gobot/utils/checks"
 	"io"
 	"log"
@@ -164,18 +165,6 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 	}
 }
 
-func removeSongFromQueue(ctx *models.Context) []*models.SongInfo {
-	// Remove current song from queue
-	var temp []*models.SongInfo
-	for i := 0; i < len(ctx.Client.SongQueue); i++ {
-		if i >= 1 {
-			temp = append(temp, ctx.Client.SongQueue[i])
-		}
-	}
-	// Replace queue with updated one
-	return temp
-}
-
 // This plays the next song in the queue
 func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool) {
 	if len(ctx.Client.SongQueue) >= 1 {
@@ -241,7 +230,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 
 func clearStatusAndRemoveCurrentSongFromQueue(ctx *models.Context) {
 	ctx.Client.Session.UpdateCustomStatus("")
-	temp := removeSongFromQueue(ctx)
+	temp := arrays.RemoveFirstSong(ctx.Client.SongQueue)
 	ctx.Client.SetQueue(temp)
 }
 
@@ -284,12 +273,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 			ctx.Client.Session.UpdateCustomStatus("")
 			log.Println("[Music] Stop signal sent")
 			// Remove current song from queue
-			var temp []*models.SongInfo
-			for i := 0; i < len(ctx.Client.SongQueue); i++ {
-				if i >= 1 {
-					temp = append(temp, ctx.Client.SongQueue[i])
-				}
-			}
+			temp := arrays.RemoveFirstSong(ctx.Client.SongQueue)
 			// Replace queue with updated one
 			ctx.Client.SetQueue(temp)
 			// Kill ffmpeg
@@ -440,8 +424,6 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	}()
 	defer close(closeChannel)
 
-	var opuslen int16
-
 	// File reader
 	buffer := make(chan []byte, 200) // 200 frames can be buffered from the file
 
@@ -466,6 +448,8 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 			log.Println("[Music] Buffer closed")
 		}
 	}()
+
+	var opuslen int16
 
 	go func() {
 		for {
