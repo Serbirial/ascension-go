@@ -224,7 +224,13 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 				v.Disconnect()
 				return
 			}
+		} else if len(ctx.Client.SongQueue) >= 1 {
+			// Give the bot 2 seconds to prevent audio overlap
+			time.Sleep(2 * time.Second)
+			// Play the next song
+			playNextSongInQueue(v, ctx, stop, skip)
 		}
+
 	}
 }
 
