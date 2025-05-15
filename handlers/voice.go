@@ -549,6 +549,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 			} else if string(data) == "DONE" {
 				// WS sent DONE, stop recv and start cleanup
 				log.Println("[Music] WS sent DONE, ending stream")
+				close(send)
 				wsStop <- true
 				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
