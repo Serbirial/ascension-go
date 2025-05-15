@@ -158,10 +158,12 @@ func HandleWebSocket(ws *websocket.Conn) {
 		if err := websocket.JSON.Receive(ws, &msg); err != nil {
 			if tempConnection {
 				log.Println("[WS] Communication connection Closed:", name, identifier, "-", err)
+				break
+			} else {
+				log.Println("[WS] Streaming connection Closed:", name, identifier, "-", err)
+				break
 
 			}
-			log.Println("[WS] Streaming connection Closed:", name, identifier, "-", err)
-			break
 		}
 
 		// Set the reference and identifier
