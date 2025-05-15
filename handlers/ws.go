@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	Clients = make(map[*websocket.Conn]*models.Client)
-	Loops   = make(map[*websocket.Conn]chan bool)
-	Seeks   = make(map[*websocket.Conn]chan int)
+	Clients = make(map[string]*models.Client)
+	Loops   = make(map[string]chan bool)
+	Seeks   = make(map[string]chan int)
 
 	clientsMu sync.Mutex
 	loopsMu   sync.Mutex
@@ -147,37 +147,44 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 func HandleWebSocket(ws *websocket.Conn) {
 	defer ws.Close()
 
-	// Register new client
-	clientsMu.Lock()
-	Clients[ws] = &models.Client{Conn: ws}
-	clientsMu.Unlock()
-
 	log.Println("[WS] Connected: ", ws.RemoteAddr())
+	var tempConnection bool = true // Assume temp connection
+	var reference string = ""
 
 	for {
 		var msg models.Message
-
 		// Read JSON message
 		if err := websocket.JSON.Receive(ws, &msg); err != nil {
 			log.Println("[WS] Disconnected: ", ws.RemoteAddr(), "-", err)
 			break
 		}
 
-		// Set client's name if first message
-		clientsMu.Lock()
-		if Clients[ws].Name == "" {
-			log.Println("[WS] SetName: ", msg.From)
+		// Set the reference
+		reference = msg.From
 
-			Clients[ws].Name = msg.From
+		// Register new client after they send identifier (first recv)
+		clientsMu.Lock()
+		_, exists := Clients[msg.From]
+		if !exists { // Client already might exist (ex: is playing music, but opened temporary WS connection)
+			// So we dont wanna replace that connection as a permanent connection- only keep it around until the bot closes it
+			tempConnection = false // First time connection from a client means its main WS connection
+			Clients[msg.From] = &models.Client{Conn: ws}
+			// Set client's name if first message
+			if Clients[msg.From].Name == "" {
+				log.Println("[WS] Client sent identifier: ", msg.From)
+
+				Clients[msg.From].Name = msg.From
+			}
 		}
+
 		clientsMu.Unlock()
 
 		// Process stop
 		if msg.Stop {
 			loopsMu.Lock()
-			if stop, ok := Loops[ws]; ok {
+			if stop, ok := Loops[msg.From]; ok {
 				stop <- true
-				delete(Loops, ws)
+				delete(Loops, msg.From)
 			}
 			loopsMu.Unlock()
 		} else if msg.URL != "" && msg.Download == true { // If theres a URL and download is true, only download
@@ -199,21 +206,21 @@ func HandleWebSocket(ws *websocket.Conn) {
 			if err != nil {
 				log.Fatal("[WS] Error while sending song info:", err)
 			}
-		} else if msg.URL != "" && msg.Download == false { // If theres a URL but download is false, that means download&play
+		} else if msg.URL != "" && msg.Download == false && !tempConnection { // If theres a URL but download is false, that means download&play, but this should only happen on a main connection
 			log.Println("[WS] Play received from " + msg.From)
 
 			data, err := fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
 			if err != nil {
 				log.Fatal("[WS] Error while downloading song and info:", err)
 			}
-			msg := &models.SongInfo{
+			msgData := &models.SongInfo{
 				FilePath: data.FilePath,
 				Title:    data.Title,
 				Uploader: data.Uploader,
 				ID:       data.ID,
 				Duration: data.Duration,
 			}
-			jsonData, err := json.Marshal(msg)
+			jsonData, err := json.Marshal(msgData)
 			err = websocket.Message.Send(ws, jsonData)
 			if err != nil {
 				log.Fatal("[WS] Error while sending song info:", err)
@@ -224,9 +231,9 @@ func HandleWebSocket(ws *websocket.Conn) {
 			stopChannel := make(chan bool, 1)
 			seekChannel := make(chan int, 1)
 
-			go sendByteData(ws, msg, stopChannel, seekChannel)
-			Loops[ws] = stopChannel
-			Seeks[ws] = seekChannel
+			go sendByteData(ws, msgData, stopChannel, seekChannel)
+			Loops[msg.From] = stopChannel
+			Seeks[msg.From] = seekChannel
 
 			loopsMu.Unlock()
 			seeksMu.Unlock()
@@ -234,7 +241,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 		} else if msg.Seek != 0 {
 			log.Println("[WS] Seek received from " + msg.From)
 			seeksMu.Lock()
-			if seek, ok := Seeks[ws]; ok {
+			if seek, ok := Seeks[msg.From]; ok {
 				seek <- msg.Seek
 			}
 			seeksMu.Unlock()
@@ -244,21 +251,24 @@ func HandleWebSocket(ws *websocket.Conn) {
 
 	}
 
-	// Remove client on disconnect
-	clientsMu.Lock()
-	delete(Clients, ws)
-	clientsMu.Unlock()
-	loopsMu.Lock()
-	if stop, ok := Loops[ws]; ok {
-		stop <- true
-		close(stop)
-		delete(Loops, ws)
+	// Remove client on disconnect if not temp connection
+	if !tempConnection {
+		clientsMu.Lock()
+		delete(Clients, reference)
+		clientsMu.Unlock()
+		loopsMu.Lock()
+		if stop, ok := Loops[reference]; ok {
+			stop <- true
+			close(stop)
+			delete(Loops, reference)
+		}
+		loopsMu.Unlock()
+		seeksMu.Lock()
+		if seek, ok := Seeks[reference]; ok {
+			close(seek)
+			delete(Seeks, reference)
+		}
+		seeksMu.Unlock()
 	}
-	loopsMu.Unlock()
-	seeksMu.Lock()
-	if seek, ok := Seeks[ws]; ok {
-		close(seek)
-		delete(Seeks, ws)
-	}
-	seeksMu.Unlock()
+
 }

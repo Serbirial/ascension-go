@@ -48,6 +48,8 @@ func parseFlags() CommandLineConfig {
 }
 
 var config = parseFlags()
+var wsURL string = "ws://localhost:8182/ws"
+var wsOrigin string = "http://localhost/"
 
 func startProfiler() {
 	log.Println("[PROFILER] Starting pprof server at :6060")
@@ -78,7 +80,7 @@ func startBot() {
 	var skipChannel = make(chan bool)
 	var seekChannel = make(chan int)
 
-	var Bot = models.LanaBot{Session: session, StopChannel: stopChannel, SkipChannel: skipChannel, SeekChannel: seekChannel, Token: token, Owners: owners, Prefix: prefix, Commands: commandList}
+	var Bot = models.LanaBot{Session: session, StopChannel: stopChannel, SkipChannel: skipChannel, SeekChannel: seekChannel, Token: token, Owners: owners, Prefix: prefix, Commands: commandList, WsUrl: wsURL, WsOrigin: wsOrigin}
 	Bot.AddCommands(commands.AllCommands)
 	session.Identify.Intents = models.Intents
 
@@ -89,7 +91,7 @@ func startBot() {
 	err = session.Open()
 	error.ErrorCheckPanic(err)
 
-	Bot.ConnectToWS("ws://localhost:8182/ws", "http://localhost/")
+	Bot.ConnectToWS(wsURL, wsOrigin)
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
