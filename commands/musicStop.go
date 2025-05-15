@@ -3,6 +3,7 @@ package commands
 import (
 	"ascension/models"
 	"ascension/utils/checks"
+	"time"
 )
 
 var StopCommand = models.Command{
@@ -23,16 +24,14 @@ func stopCommand(ctx *models.Context, args map[string]string) {
 	}
 
 	ctx.Send("Sending stop...")
-	ctx.Client.SendStopToWS()
-	ctx.Send("Done.")
 
-	//select {
-	//case ctx.Client.StopChannel <- true:
-	//	ctx.Send("Done.")
-	//	return
+	select {
+	case ctx.Client.StopChannel <- true:
+		ctx.Send("Done.")
+		return
 
-	//	case <-time.After(10 * time.Second):
-	//		ctx.Send("Took too long to quit player.")
-	//		return
-	//	}
+	case <-time.After(10 * time.Second):
+		ctx.Send("Took too long to quit player.")
+		return
+	}
 }

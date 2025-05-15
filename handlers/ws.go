@@ -27,15 +27,21 @@ var (
 
 func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 	for {
-		var data []byte
-		err := websocket.Message.Receive(ws, &data)
-		if err != nil {
-			OnError("[WS-BYTE-RECV]", "Receive error:", err)
+		select {
+		case <-stop:
+			log.Println("[WS-BYTE-RECV] Stop signal received")
+			return
+		default:
+			var data []byte
+			err := websocket.Message.Receive(ws, &data)
+			if err != nil {
+				OnError("[WS-BYTE-RECV]", "Receive error:", err)
+				return
+			}
+			output <- data
 		}
-		output <- data
 	}
 }
-
 func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, seek <-chan int) {
 	log.Println("[WS] Streaming started")
 	file, err := os.Open(song.FilePath)
@@ -102,6 +108,8 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			err := binary.Read(file, binary.LittleEndian, &opuslen)
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				smu.Unlock()
+				_ = websocket.Message.Send(ws, []byte("EOF")) // send EOF to client
+
 				return // End of file
 			}
 			if err != nil {

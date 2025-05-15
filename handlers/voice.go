@@ -682,15 +682,24 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 			// Stop WS/Stream
 			close(send)
 			wsStop <- true
-			log.Println("[Music] DCA Streaming stopped")
+			log.Println("[Music] WS recv stopped")
+			log.Println("[Music] Sending stop to WS server")
+			ctx.Client.SendStopToWS()
+			log.Println("[Music] Sent stop to WS server")
+
 			startCleanupProcess(v, ctx, stop, skip, seek)
 			return
 		case data, ok := <-wsBuffer:
 			if !ok {
-				// DCA stream ended
+				// WS stream channel closed
 				wsStop <- true
-
-				log.Println("[Music] DCA buffer empty, ending stream")
+				log.Println("[Music] WS buffer closed, ending stream")
+				startCleanupProcess(v, ctx, stop, skip, seek)
+				return
+			} else if string(data) == "EOF" {
+				// WS sent EOF, stop recv and start cleanup
+				wsStop <- true
+				log.Println("[Music] WS sent EOF, ending stream")
 				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
 			}
@@ -701,7 +710,11 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				// Stop WS/Stream
 				close(send)
 				wsStop <- true
-				log.Println("[Music] DCA Streaming stopped")
+				log.Println("[Music] WS recv stopped")
+				log.Println("[Music] Sending stop to WS server")
+				ctx.Client.SendStopToWS()
+				log.Println("[Music] Sent stop to WS server")
+				log.Println("[Music] WS Streaming stopped")
 				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
 			}
