@@ -108,7 +108,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			err := binary.Read(file, binary.LittleEndian, &opuslen)
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				smu.Unlock()
-				_ = websocket.Message.Send(ws, []byte("EOF")) // send EOF to client
+				_ = websocket.Message.Send(ws, []byte("DONE")) // send DONE to client
 
 				return // End of file
 			}
