@@ -77,7 +77,8 @@ func playCommand(ctx *models.Context, args map[string]string) {
 
 	// Nothing is playing: start playing song instantly.
 	if ctx.Client.IsPlaying == false {
-		ctx.Client.SetPlayingBool(true)
+		ctx.Client.SetPlayingBool(true)      // Set playing
+		ctx.Client.SendPlayToWS(args["url"]) // Notify the WS server to start playing the song
 		handlers.PlayFromWS(voice, ctx, songInfo, ctx.Client.StopChannel, ctx.Client.SkipChannel, ctx.Client.SeekChannel)
 
 	}

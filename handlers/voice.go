@@ -228,7 +228,7 @@ func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop
 		var song *models.SongInfo = ctx.Client.SongQueue[0]
 		url := "https://www.youtube.com/watch?v=" + song.ID // Build the URL for the WS server
 
-		ctx.Client.SendDownloadToWS(url) // Send to the WS server to play
+		ctx.Client.SendPlayToWS(url) // Send to the WS server to play
 		PlayFromWS(v, ctx, song, stop, skip, seek)
 	}
 }
