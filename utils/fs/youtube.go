@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"gobot/models"
+	"ascension/models"
 	"io"
 	"log"
 	"os"

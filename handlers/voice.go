@@ -9,12 +9,12 @@
 package handlers
 
 import (
+	"ascension/models"
+	"ascension/utils/arrays"
+	"ascension/utils/checks"
 	"bufio"
 	"encoding/binary"
 	"fmt"
-	"gobot/models"
-	"gobot/utils/arrays"
-	"gobot/utils/checks"
 	"io"
 	"log"
 	"os"

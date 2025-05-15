@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"gobot/models"
+	"ascension/models"
 )
 
 var AllCommands = map[string]models.Command{

@@ -1,7 +1,7 @@
 package fs
 
 import (
-	"gobot/error"
+	"ascension/error"
 	"os"
 	"strings"
 )

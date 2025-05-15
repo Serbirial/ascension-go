@@ -1,8 +1,8 @@
 package commands
 
 import (
-	"gobot/models"
-	"gobot/utils/checks"
+	"ascension/models"
+	"ascension/utils/checks"
 	"strconv"
 	"time"
 )

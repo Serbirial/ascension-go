@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"gobot/models"
-	"gobot/utils/fs"
+	"ascension/models"
+	"ascension/utils/fs"
 
 	"golang.org/x/net/websocket"
 )

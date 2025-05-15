@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"gobot/handlers"
-	"gobot/models"
-	"gobot/utils/checks"
-	"gobot/utils/fs"
+	"ascension/handlers"
+	"ascension/models"
+	"ascension/utils/checks"
+	"ascension/utils/fs"
 )
 
 const AUDIO_FOLDER string = "audio_temp"

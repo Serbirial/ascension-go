@@ -1,4 +1,4 @@
-module gobot
+module ascension
 
 go 1.24.1
 

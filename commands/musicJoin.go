@@ -3,8 +3,8 @@ package commands
 import (
 	"fmt"
 
-	"gobot/models"
-	"gobot/utils/checks"
+	"ascension/models"
+	"ascension/utils/checks"
 )
 
 var JoinCommand = models.Command{

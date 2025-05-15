@@ -1,7 +1,7 @@
 package models
 
 import (
-	"gobot/error"
+	"ascension/error"
 
 	"github.com/bwmarrin/discordgo"
 )

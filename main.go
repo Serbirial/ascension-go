@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"syscall"
 
-	"gobot/commands"
-	"gobot/error"
-	"gobot/handlers"
-	"gobot/models"
-	"gobot/utils/fs"
+	"ascension/commands"
+	"ascension/error"
+	"ascension/handlers"
+	"ascension/models"
+	"ascension/utils/fs"
 
 	"log"
 	"net/http"

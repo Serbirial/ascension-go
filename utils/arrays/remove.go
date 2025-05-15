@@ -1,6 +1,6 @@
 package arrays
 
-import "gobot/models"
+import "ascension/models"
 
 func Remove(s []any, r any) []any {
 	for i, v := range s {

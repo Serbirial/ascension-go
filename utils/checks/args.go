@@ -1,8 +1,8 @@
 package checks
 
 import (
+	"ascension/models"
 	"errors"
-	"gobot/models"
 	"strconv"
 	"strings"
 )

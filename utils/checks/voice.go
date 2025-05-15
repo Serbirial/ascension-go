@@ -1,9 +1,9 @@
 package checks
 
 import (
+	"ascension/models"
 	"errors"
 	"fmt"
-	"gobot/models"
 
 	"github.com/bwmarrin/discordgo"
 )
