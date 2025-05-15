@@ -81,9 +81,9 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			log.Println("[WS] Streaming stopped")
 			return
 
-		case seconds := <-seek: // Seek through file if the seek signal has been sent
+		case seconds := <-seek:
 			smu.Lock()
-			log.Println("[WS] Seeking.")
+			log.Println("[WS] Seeking")
 
 			frameDelta := int(seconds * frameRateDCA)
 			targetFrame := currentFrame + frameDelta
@@ -97,20 +97,19 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			_, err := file.Seek(frameIndex[targetFrame], io.SeekStart)
 			if err != nil {
 				log.Println("[WS] Seek error:", err)
-				smu.Unlock()
-				return
+			} else {
+				log.Printf("[WS] Seeked to frame %d (byte offset %d)", targetFrame, frameIndex[targetFrame])
+				currentFrame = targetFrame
 			}
-			currentFrame = targetFrame
 			smu.Unlock()
 
-		case <-time.After(5 * time.Millisecond): // Send the next frame
+		case <-time.After(5 * time.Millisecond):
 			smu.Lock()
 			err := binary.Read(file, binary.LittleEndian, &opuslen)
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				smu.Unlock()
 				_ = websocket.Message.Send(ws, []byte("DONE")) // send DONE to client
-
-				return // End of file
+				return
 			}
 			if err != nil {
 				log.Println("[WS] Error reading frame length:", err)
@@ -137,6 +136,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 				smu.Unlock()
 				return
 			}
+
 			currentFrame++
 			frameBufPool.Put(buf)
 			smu.Unlock()

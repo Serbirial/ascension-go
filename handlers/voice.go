@@ -651,29 +651,36 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	defer func() { wsStop <- true }()                                     // Stop the WS receiver once done
 	go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop) // Start receiving PCM data from WS
 
-	// Handle stop and skip signals
+	// Persistent signal listener
 	go func() {
-		select {
-		case signal, ok := <-stop:
-			if ok && signal {
-				closeChannel <- true
-			}
-		case signal, ok := <-skip:
-			if ok && signal {
-				closeChannel <- true
-			}
-		case seekNum, ok := <-seek:
-			if ok {
-			drain:
-				for {
-					select {
-					case <-wsBuffer:
-						// drain element
-					default:
-						break drain // exit draining loop
-					}
+		for {
+			select {
+			case signal, ok := <-stop:
+				if ok && signal {
+					closeChannel <- true
+					return
 				}
-				ctx.Client.SendSeekToWS(seekNum, ctx.GuildID)
+			case signal, ok := <-skip:
+				if ok && signal {
+					closeChannel <- true
+					return
+				}
+			case seekNum, ok := <-seek:
+				if ok {
+					log.Printf("[Music] Seek requested to: %d seconds", seekNum)
+
+					// Drain any buffered frames so we don’t send stale audio
+				drain:
+					for {
+						select {
+						case <-wsBuffer:
+						default:
+							break drain
+						}
+					}
+
+					ctx.Client.SendSeekToWS(seekNum, ctx.GuildID)
+				}
 			}
 		}
 	}()
