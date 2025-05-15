@@ -4,7 +4,6 @@ import (
 	"ascension/models"
 	"ascension/utils/checks"
 	"strconv"
-	"time"
 )
 
 var SeekCommand = models.Command{
@@ -32,13 +31,16 @@ func seekCommand(ctx *models.Context, args map[string]string) {
 	}
 
 	ctx.Send("Sending seek...")
-	select {
-	case ctx.Client.SeekChannel <- seekTime:
-		ctx.Send("Done.")
-		return
+	ctx.Client.SendSeekToWS(seekTime)
+	ctx.Send("Done.")
 
-	case <-time.After(5 * time.Second):
-		ctx.Send("Took too long to send the seek signal.")
-		return
-	}
+	//	select {
+	//	case ctx.Client.SeekChannel <- seekTime:
+	//		ctx.Send("Done.")
+	//		return
+
+	//	case <-time.After(5 * time.Second):
+	//		ctx.Send("Took too long to send the seek signal.")
+	//		return
+	//	}
 }

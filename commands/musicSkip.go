@@ -3,7 +3,6 @@ package commands
 import (
 	"ascension/models"
 	"ascension/utils/checks"
-	"time"
 )
 
 var SkipCommand = models.Command{
@@ -24,13 +23,16 @@ func skipCommand(ctx *models.Context, args map[string]string) {
 	}
 
 	ctx.Send("Sending skip...")
-	select {
-	case ctx.Client.SkipChannel <- true:
-		ctx.Send("Done.")
-		return
+	ctx.Client.SendStopToWS()
+	ctx.Send("Done.")
+	return
 
-	case <-time.After(5 * time.Second):
-		ctx.Send("Took too long to send the skip signal.")
-		return
-	}
+	//select {
+	//case ctx.Client.SkipChannel <- true:
+	//	ctx.Send("Done.")
+	//	return
+	//
+	//	case <-time.After(5 * time.Second):
+	//		ctx.Send("Took too long to send the skip signal.")
+	//		return
 }

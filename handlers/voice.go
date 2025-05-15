@@ -641,32 +641,28 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	}()
 	defer close(closeChannel)
 
-	wsBuffer := make(chan []byte, 200)                      // 200 frames can be buffered from WS
+	wsBuffer := make(chan []byte, 50)                       // 50 frames can be buffered from WS
 	defer close(wsBuffer)                                   // Close buffer
 	wsStop := make(chan bool, 1)                            // Signal for quitting the WS receiver
 	defer close(wsStop)                                     // Close WS stop
 	defer func() { wsStop <- true }()                       // Stop the WS receiver once done
 	go RecvByteData(ctx.Client.WebSocket, wsBuffer, wsStop) // Start receiving PCM data from WS
 
-	//when stop is sent, set stop bool to true
+	// Handle stop and skip signals
 	go func() {
-		signal := <-stop
-		log.Println("[Music] Received signal")
-		if signal {
-			log.Println("[Music] Stop signal recognized")
-			closeChannel <- true
-			log.Println("[Music] Buffer closed")
-		}
-	}()
-
-	//when skip is sent, do the cleanup process so the next song can be played and set the stop bool
-	go func() {
-		signal := <-skip
-		log.Println("[Music] Received signal")
-		if signal {
-			log.Println("[Music] Skip signal recognized")
-			closeChannel <- true
-			log.Println("[Music] Buffer closed")
+		select {
+		case signal, ok := <-stop:
+			if ok && signal {
+				closeChannel <- true
+			}
+		case signal, ok := <-skip:
+			if ok && signal {
+				closeChannel <- true
+			}
+		case seekNum, ok := <-seek:
+			if ok {
+				ctx.Client.SendSeekToWS(seekNum)
+			}
 		}
 	}()
 

@@ -7,7 +7,6 @@ import (
 	"ascension/handlers"
 	"ascension/models"
 	"ascension/utils/checks"
-	"ascension/utils/fs"
 )
 
 const AUDIO_FOLDER string = "audio_temp"
@@ -61,7 +60,8 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	ctx.Client.SetDownloadingBool(true)
 	// Download the youtube URL to a file
 	ctx.Send("Downloading...")
-	songInfo, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
+	//songInfo, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
+	songInfo, err := ctx.Client.SendDownloadToWS(args["url"])
 	if err != nil {
 		fmt.Println(err)
 		ctx.Send("Error with DownloadURL function.")
@@ -78,7 +78,7 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	// Nothing is playing: start playing song instantly.
 	if ctx.Client.IsPlaying == false {
 		ctx.Client.SetPlayingBool(true)
-		handlers.PlayDCAFile(voice, ctx, songInfo, songInfo.FilePath, ctx.Client.StopChannel, ctx.Client.SkipChannel, ctx.Client.SeekChannel)
+		handlers.PlayFromWS(voice, ctx, songInfo, ctx.Client.StopChannel, ctx.Client.SkipChannel, ctx.Client.SeekChannel)
 
 	}
 }

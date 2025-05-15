@@ -76,7 +76,7 @@ func (bot *LanaBot) ConnectToWS(url string, origin string) {
 
 }
 
-func (bot *LanaBot) SendDownloadToWS(url string) *SongInfo {
+func (bot *LanaBot) SendDownloadToWS(url string) (*SongInfo, error) {
 	me, err := bot.Session.User("@me")
 	if err != nil {
 		panic("error getting self")
@@ -99,16 +99,18 @@ func (bot *LanaBot) SendDownloadToWS(url string) *SongInfo {
 	var jsonDataRecv []byte
 	if err := websocket.Message.Receive(bot.WebSocket, &jsonDataRecv); err != nil {
 		log.Fatalf("Failed to receive: %v", err)
+		return nil, err
 	}
 
 	var song SongInfo
 	if err := json.Unmarshal(jsonDataRecv, &song); err != nil {
 		log.Fatalf("Failed to decode JSON: %v", err)
+		return nil, err
 	}
-	return &song
+	return &song, nil
 
 }
-func (bot *LanaBot) SendStopToWS(url string) {
+func (bot *LanaBot) SendStopToWS() {
 	me, err := bot.Session.User("@me")
 	if err != nil {
 		panic("error getting self")
