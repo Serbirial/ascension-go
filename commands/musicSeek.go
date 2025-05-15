@@ -14,7 +14,7 @@ var SeekCommand = models.Command{
 	Args:    map[string]string{"time": "The ammount of seconds to seek."},
 
 	Checks:   []func(*models.Context) error{},
-	Callback: skipCommand,
+	Callback: seekCommand,
 }
 
 func seekCommand(ctx *models.Context, args map[string]string) {
