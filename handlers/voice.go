@@ -668,18 +668,28 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 			case seekNum, ok := <-seek:
 				if ok {
 					log.Printf("[Music] Seek requested to: %d seconds", seekNum)
-
+					ctx.Client.SendSeekToWS(seekNum, ctx.GuildID)
+					wsStop <- true
 					// Drain any buffered frames so we don’t send stale audio
-				drain:
+				drainWS:
 					for {
 						select {
 						case <-wsBuffer:
 						default:
-							break drain
+							break drainWS
 						}
 					}
+				drainSend:
+					for {
+						select {
+						case <-send:
+						default:
+							break drainSend
+						}
+					}
+					// Start receiving new frames again
+					go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop) // Start receiving PCM data from WS
 
-					ctx.Client.SendSeekToWS(seekNum, ctx.GuildID)
 				}
 			}
 		}
