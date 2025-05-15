@@ -76,11 +76,11 @@ func startBot() {
 	session, err := discordgo.New("Bot " + token)
 	error.ErrorCheckPanic(err)
 
-	var stopChannel = make(chan bool)
-	var skipChannel = make(chan bool)
-	var seekChannel = make(chan int)
+	var stopChannels = make(map[string]chan bool)
+	var skipChannels = make(map[string]chan bool)
+	var seekChannels = make(map[string]chan int)
 
-	var Bot = models.LanaBot{Session: session, StopChannel: stopChannel, SkipChannel: skipChannel, SeekChannel: seekChannel, Token: token, Owners: owners, Prefix: prefix, Commands: commandList, WsUrl: wsURL, WsOrigin: wsOrigin}
+	var Bot = models.LanaBot{Session: session, StopChannels: stopChannels, SkipChannels: skipChannels, SeekChannels: seekChannels, Token: token, Owners: owners, Prefix: prefix, Commands: commandList, WsUrl: wsURL, WsOrigin: wsOrigin}
 	Bot.AddCommands(commands.AllCommands)
 	session.Identify.Intents = models.Intents
 
@@ -90,8 +90,6 @@ func startBot() {
 
 	err = session.Open()
 	error.ErrorCheckPanic(err)
-
-	Bot.ConnectToWS(wsURL, wsOrigin)
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)

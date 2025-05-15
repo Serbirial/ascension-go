@@ -45,6 +45,16 @@ func playCommand(ctx *models.Context, args map[string]string) {
 		return
 	}
 
+	// Start the WS connection for the guild and create everything needed
+	_, exists := ctx.Client.Websockets[ctx.GuildID]
+	if !exists {
+		_ = ctx.Client.ConnectToWS(ctx.Client.WsUrl, ctx.Client.WsOrigin, ctx.GuildID)
+		ctx.Client.SkipChannels[ctx.GuildID] = make(chan bool)
+		ctx.Client.StopChannels[ctx.GuildID] = make(chan bool)
+		ctx.Client.SeekChannels[ctx.GuildID] = make(chan int)
+
+	}
+
 	// If the bot is currently downloading, wait for download to finish before starting next download.
 	for {
 		if ctx.Client.IsDownloading {
@@ -61,7 +71,7 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	// Download the youtube URL to a file
 	ctx.Send("Downloading...")
 	//songInfo, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
-	songInfo, err := ctx.Client.SendDownloadToWS(args["url"])
+	songInfo, err := ctx.Client.SendDownloadToWS(args["url"], ctx.GuildID)
 	if err != nil {
 		fmt.Println(err)
 		ctx.Send("Error with DownloadURL function.")
@@ -77,9 +87,9 @@ func playCommand(ctx *models.Context, args map[string]string) {
 
 	// Nothing is playing: start playing song instantly.
 	if ctx.Client.IsPlaying == false {
-		ctx.Client.SetPlayingBool(true)      // Set playing
-		ctx.Client.SendPlayToWS(args["url"]) // Notify the WS server to start playing the song
-		handlers.PlayFromWS(voice, ctx, songInfo, ctx.Client.StopChannel, ctx.Client.SkipChannel, ctx.Client.SeekChannel)
+		ctx.Client.SetPlayingBool(true)                   // Set playing
+		ctx.Client.SendPlayToWS(args["url"], ctx.GuildID) // Notify the WS server to start playing the song
+		handlers.PlayFromWS(voice, ctx, songInfo, ctx.Client.StopChannels[ctx.GuildID], ctx.Client.SkipChannels[ctx.GuildID], ctx.Client.SeekChannels[ctx.GuildID])
 
 	}
 }

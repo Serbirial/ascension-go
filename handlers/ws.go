@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	Clients = make(map[string]*models.Client)
-	Loops   = make(map[string]chan bool)
-	Seeks   = make(map[string]chan int)
+	Clients = make(map[string]map[string]*models.Client)
+	Loops   = make(map[string]map[string]chan bool)
+	Seeks   = make(map[string]map[string]chan int)
 
 	clientsMu sync.Mutex
 	loopsMu   sync.Mutex
@@ -150,6 +150,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 	log.Println("[WS] Connected: ", ws.RemoteAddr())
 	var tempConnection bool = true // Assume temp connection
 	var reference string = ""
+	var identifier string = ""
 
 	for {
 		var msg models.Message
@@ -161,6 +162,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 
 		// Set the reference
 		reference = msg.From
+		identifier = msg.Identifier
 
 		// Register new clients after they send identifier (first recv)
 		clientsMu.Lock()
@@ -169,12 +171,12 @@ func HandleWebSocket(ws *websocket.Conn) {
 		_, exists := Clients[msg.From]
 		if !exists { // First time connection from a client means its main WS connection, dont replace that
 			tempConnection = false // First time connection from a client means its main WS connection
-			Clients[msg.From] = &models.Client{Conn: ws}
+			Clients[msg.From][identifier] = &models.Client{Conn: ws}
 			// Set client's name if first message
-			if Clients[msg.From].Name == "" {
+			if Clients[msg.From][identifier].Name == "" {
 				log.Println("[WS] Client sent identifier: ", msg.From)
 
-				Clients[msg.From].Name = msg.From
+				Clients[msg.From][identifier].Name = msg.From
 			}
 		}
 
@@ -183,7 +185,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 		// Process stop
 		if msg.Stop {
 			loopsMu.Lock()
-			if stop, ok := Loops[msg.From]; ok {
+			if stop, ok := Loops[msg.From][identifier]; ok {
 				stop <- true
 				delete(Loops, msg.From)
 			}
@@ -232,9 +234,9 @@ func HandleWebSocket(ws *websocket.Conn) {
 			stopChannel := make(chan bool, 1)
 			seekChannel := make(chan int, 1)
 
-			go sendByteData(Clients[msg.From].Conn, msgData, stopChannel, seekChannel)
-			Loops[msg.From] = stopChannel
-			Seeks[msg.From] = seekChannel
+			go sendByteData(Clients[msg.From][identifier].Conn, msgData, stopChannel, seekChannel)
+			Loops[msg.From][identifier] = stopChannel
+			Seeks[msg.From][identifier] = seekChannel
 
 			loopsMu.Unlock()
 			seeksMu.Unlock()
@@ -242,7 +244,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 		} else if msg.Seek != 0 {
 			log.Println("[WS] Seek received from " + msg.From)
 			seeksMu.Lock()
-			if seek, ok := Seeks[msg.From]; ok {
+			if seek, ok := Seeks[msg.From][identifier]; ok {
 				seek <- msg.Seek
 			}
 			seeksMu.Unlock()
@@ -258,14 +260,14 @@ func HandleWebSocket(ws *websocket.Conn) {
 		delete(Clients, reference)
 		clientsMu.Unlock()
 		loopsMu.Lock()
-		if stop, ok := Loops[reference]; ok {
+		if stop, ok := Loops[reference][identifier]; ok {
 			stop <- true
 			close(stop)
 			delete(Loops, reference)
 		}
 		loopsMu.Unlock()
 		seeksMu.Lock()
-		if seek, ok := Seeks[reference]; ok {
+		if seek, ok := Seeks[reference][identifier]; ok {
 			close(seek)
 			delete(Seeks, reference)
 		}

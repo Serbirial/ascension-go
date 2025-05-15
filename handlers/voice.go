@@ -228,7 +228,7 @@ func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop
 		var song *models.SongInfo = ctx.Client.SongQueue[0]
 		url := "https://www.youtube.com/watch?v=" + song.ID // Build the URL for the WS server
 
-		ctx.Client.SendPlayToWS(url) // Send to the WS server to play
+		ctx.Client.SendPlayToWS(url, ctx.GuildID) // Send to the WS server to play
 		PlayFromWS(v, ctx, song, stop, skip, seek)
 	}
 }
@@ -644,12 +644,12 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	}()
 	defer close(closeChannel)
 
-	wsBuffer := make(chan []byte, 60)                       // 60 frames can be buffered from WS
-	defer close(wsBuffer)                                   // Close buffer
-	wsStop := make(chan bool, 1)                            // Signal for quitting the WS receiver
-	defer close(wsStop)                                     // Close WS stop
-	defer func() { wsStop <- true }()                       // Stop the WS receiver once done
-	go RecvByteData(ctx.Client.WebSocket, wsBuffer, wsStop) // Start receiving PCM data from WS
+	wsBuffer := make(chan []byte, 60)                                     // 60 frames can be buffered from WS
+	defer close(wsBuffer)                                                 // Close buffer
+	wsStop := make(chan bool, 1)                                          // Signal for quitting the WS receiver
+	defer close(wsStop)                                                   // Close WS stop
+	defer func() { wsStop <- true }()                                     // Stop the WS receiver once done
+	go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop) // Start receiving PCM data from WS
 
 	// Handle stop and skip signals
 	go func() {
@@ -673,7 +673,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 						break drain // exit draining loop
 					}
 				}
-				ctx.Client.SendSeekToWS(seekNum)
+				ctx.Client.SendSeekToWS(seekNum, ctx.GuildID)
 			}
 		}
 	}()
@@ -687,7 +687,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 			wsStop <- true
 			log.Println("[Music] WS receiving stopped")
 			log.Println("[Music] Sending stop to WS server")
-			ctx.Client.SendStopToWS()
+			ctx.Client.SendStopToWS(ctx.GuildID)
 			log.Println("[Music] Sent stop to WS server")
 
 			startCleanupProcess(v, ctx, stop, skip, seek)
@@ -715,7 +715,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				wsStop <- true
 				log.Println("[Music] WS recv stopped")
 				log.Println("[Music] Sending stop to WS server")
-				ctx.Client.SendStopToWS()
+				ctx.Client.SendStopToWS(ctx.GuildID)
 				log.Println("[Music] Sent stop to WS server")
 				log.Println("[Music] WS Streaming stopped")
 				startCleanupProcess(v, ctx, stop, skip, seek)

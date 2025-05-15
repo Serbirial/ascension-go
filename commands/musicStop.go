@@ -26,7 +26,7 @@ func stopCommand(ctx *models.Context, args map[string]string) {
 	ctx.Send("Sending stop...")
 
 	select {
-	case ctx.Client.StopChannel <- true:
+	case ctx.Client.StopChannels[ctx.GuildID] <- true:
 		ctx.Send("Done.")
 		return
 

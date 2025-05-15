@@ -31,7 +31,7 @@ func seekCommand(ctx *models.Context, args map[string]string) {
 	}
 
 	ctx.Send("Sending seek...")
-	ctx.Client.SendSeekToWS(seekTime)
+	ctx.Client.SendSeekToWS(seekTime, ctx.GuildID)
 	ctx.Send("Done.")
 
 	//	select {

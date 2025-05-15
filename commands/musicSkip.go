@@ -25,7 +25,7 @@ func skipCommand(ctx *models.Context, args map[string]string) {
 
 	ctx.Send("Sending skip...")
 	select {
-	case ctx.Client.SkipChannel <- true:
+	case ctx.Client.SkipChannels[ctx.GuildID] <- true:
 		ctx.Send("Done.")
 		return
 
