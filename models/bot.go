@@ -110,6 +110,7 @@ func (bot *LanaBot) CreateTempWS(url string, origin string) *websocket.Conn {
 
 func (bot *LanaBot) SendDownloadToWS(url string) (*SongInfo, error) {
 	ws := bot.CreateTempWS(bot.WsUrl, bot.WsOrigin) // Create a new WS connection for communicating with the server
+	defer ws.Close()
 	me, err := bot.Session.User("@me")
 	if err != nil {
 		panic("error getting self")
