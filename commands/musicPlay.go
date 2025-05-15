@@ -78,7 +78,7 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	// Nothing is playing: start playing song instantly.
 	if ctx.Client.IsPlaying == false {
 		ctx.Client.SetPlayingBool(true)
-		handlers.PlayDCAFile(voice, ctx, songInfo, songInfo.FilePath, ctx.Client.StopChannel, ctx.Client.SkipChannel)
+		handlers.PlayDCAFile(voice, ctx, songInfo, songInfo.FilePath, ctx.Client.StopChannel, ctx.Client.SkipChannel, ctx.Client.SeekChannel)
 
 	}
 }

@@ -135,6 +135,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 				Title:    data.Title,
 				Uploader: data.Uploader,
 				ID:       data.ID,
+				Duration: data.Duration,
 			}
 			jsonData, err := json.Marshal(msg)
 			err = websocket.Message.Send(ws, jsonData)

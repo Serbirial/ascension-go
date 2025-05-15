@@ -103,6 +103,7 @@ func DownloadYoutubeURLToFile(rawurl string, folder string) (*models.SongInfo, e
 			Title:    video.Title,
 			Uploader: video.Author,
 			ID:       videoID,
+			Duration: video.Duration,
 		}
 		saveSongInfoToFile(songInfo, fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, videoID, "json"))
 		io.Copy(f, stream)

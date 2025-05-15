@@ -37,6 +37,9 @@ const (
 	frameRate int = 48000               // audio sampling rate
 	frameSize int = 960                 // uint16 size of each audio frame
 	maxBytes  int = (frameSize * 2) * 2 // max size of opus data
+
+	frameDuration time.Duration = 20 * time.Millisecond // DCA frame size
+
 )
 
 var (
@@ -166,18 +169,18 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 }
 
 // This plays the next song in the queue
-func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool) {
+func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool, seek <-chan int) {
 	if len(ctx.Client.SongQueue) >= 1 {
 		// Get first SongInfo in Queue and play it
 		fmt.Println(ctx.Client.SongQueue)
 		fmt.Println(ctx.Client.SongQueue[0])
 
 		var song *models.SongInfo = ctx.Client.SongQueue[0]
-		PlayDCAFile(v, ctx, song, song.FilePath, stop, skip)
+		PlayDCAFile(v, ctx, song, song.FilePath, stop, skip, seek)
 	}
 }
 
-func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool) {
+func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool, seek <-chan int) {
 	log.Println("[Music] Cleanup process started")
 	// Stop speaking
 	err := checks.BotInVoice(ctx)
@@ -202,7 +205,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 		// Give the bot 2 seconds to prevent audio overlap
 		time.Sleep(2 * time.Second)
 		// Play the next song
-		playNextSongInQueue(v, ctx, stop, skip)
+		playNextSongInQueue(v, ctx, stop, skip, seek)
 	} else if len(ctx.Client.SongQueue) == 0 { // Queue was empty
 		log.Println("[Music] Queue is empty, waiting for activity")
 		// Wait 60s to see if activity happens
@@ -237,7 +240,7 @@ func clearStatusAndRemoveCurrentSongFromQueue(ctx *models.Context) {
 // PlayAudioFile will play the given filename to the already connected
 // Discord voice server/channel.  voice websocket and udp socket
 // must already be setup before this will work.
-func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool) {
+func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool, seek <-chan int) {
 	// Send "playing" message to the channel
 	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
 	// Set status
@@ -293,7 +296,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 			log.Println("[Music] Skip signal sent")
 			err = run.Process.Kill()
 			log.Println("[Music] FFMPEG killed")
-			startCleanupProcess(v, ctx, stop, skip)
+			startCleanupProcess(v, ctx, stop, skip, seek)
 		}
 	}()
 
@@ -320,7 +323,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 
 		}
 
-		startCleanupProcess(v, ctx, stop, skip)
+		startCleanupProcess(v, ctx, stop, skip, seek)
 	}()
 
 	send := make(chan []int16, 2)
@@ -368,11 +371,47 @@ func recoverBotLeftChannel(ctx *models.Context) *discordgo.VoiceConnection {
 	return v
 }
 
-func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool) {
+// Helper: build frame index offsets
+func buildFrameIndex(file *os.File) ([]int64, error) {
+	var offsets []int64
+	var frameLen int16
+
+	_, err := file.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		pos, err := file.Seek(0, io.SeekCurrent)
+		if err != nil {
+			break
+		}
+		offsets = append(offsets, pos)
+
+		err = binary.Read(file, binary.LittleEndian, &frameLen)
+		if err != nil {
+			break
+		}
+
+		_, err = file.Seek(int64(frameLen), io.SeekCurrent)
+		if err != nil {
+			break
+		}
+	}
+
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+	return offsets, nil
+}
+
+func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool, seek <-chan int) {
 
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Println("Error opening dca file :", err)
+		return
 	}
 	defer file.Close()
 
@@ -427,55 +466,92 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	// File reader
 	buffer := make(chan []byte, 200) // 200 frames can be buffered from the file
 
-	//when stop is sent, set stop bool to true
+	// Handle stop and skip signals
 	go func() {
-		signal, ok := <-stop
-		log.Println("[Music] Received signal")
-		if ok {
-			if signal {
-				log.Println("[Music] Stop signal recognized")
+		select {
+		case signal, ok := <-stop:
+			if ok && signal {
 				closeChannel <- true
-				log.Println("[Music] Buffer closed")
+			}
+		case signal, ok := <-skip:
+			if ok && signal {
+				closeChannel <- true
 			}
 		}
 	}()
 
-	//when skip is sent, do the cleanup process so the next song can be played and set the stop bool
-	go func() {
-		signal, ok := <-skip
-		log.Println("[Music] Received signal")
-		if ok {
-			if signal {
-				log.Println("[Music] Skip signal recognized")
-				closeChannel <- true
-				log.Println("[Music] Buffer closed")
-			}
-		}
-	}()
+	const frameRateDCA = int(time.Second / frameDuration) // 50 frames per second
+	var (
+		currentFrame int = 0
+		smu          sync.Mutex
+	)
 
-	var opuslen int16
+	frameIndex, err := buildFrameIndex(file)
+	if err != nil {
+		log.Println("[Music] Error building frame index:", err)
+		return
+	}
+	if len(frameIndex) == 0 {
+		log.Println("[Music] Frame index empty, cannot play")
+		return
+	}
 
+	// Frame reader goroutine
 	go func() {
+		defer close(buffer)
+
 		for {
-			err := binary.Read(file, binary.LittleEndian, &opuslen)
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				break
-			}
-			if err != nil {
-				log.Println("[Music] Error reading frame length:", err)
-				break
-			}
+			// Non-blocking check for seek request
+			select {
+			case seconds := <-seek:
+				smu.Lock()
+				frameDelta := int(seconds * frameRateDCA)
+				targetFrame := currentFrame + frameDelta
+				if targetFrame < 0 {
+					targetFrame = 0
+				}
+				if targetFrame >= len(frameIndex) {
+					targetFrame = len(frameIndex) - 1
+				}
 
-			data := make([]byte, opuslen)
-			err = binary.Read(file, binary.LittleEndian, &data)
-			if err != nil {
-				log.Println("[Music] Error reading frame data:", err)
-				break
-			}
+				_, err := file.Seek(frameIndex[targetFrame], io.SeekStart)
+				if err != nil {
+					log.Println("[Music] Seek error:", err)
+					smu.Unlock()
+					return
+				}
+				currentFrame = targetFrame
+				smu.Unlock()
+			default:
+				// Continue reading current frame
+				smu.Lock()
+				pos, _ := file.Seek(0, io.SeekCurrent)
+				_ = pos
+				smu.Unlock()
 
-			buffer <- data // Fill the buffer
+				var opuslen int16
+				err := binary.Read(file, binary.LittleEndian, &opuslen)
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
+					return // end of file
+				}
+				if err != nil {
+					log.Println("[Music] Error reading frame length:", err)
+					return
+				}
+
+				data := make([]byte, opuslen)
+				err = binary.Read(file, binary.LittleEndian, &data)
+				if err != nil {
+					log.Println("[Music] Error reading frame data:", err)
+					return
+				}
+
+				buffer <- data
+				smu.Lock()
+				currentFrame++
+				smu.Unlock()
+			}
 		}
-		close(buffer) // Signal end of stream
 	}()
 
 	for {
@@ -485,14 +561,14 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 			// Stop streaming
 			close(send)
 			log.Println("[Music] DCA Streaming stopped")
-			startCleanupProcess(v, ctx, stop, skip)
+			startCleanupProcess(v, ctx, stop, skip, seek)
 			return
 		case data, ok := <-buffer:
 			if !ok {
 				// DCA stream ended
 				log.Println("[Music] DCA buffer empty, ending stream")
 
-				startCleanupProcess(v, ctx, stop, skip)
+				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
 			}
 			select {
@@ -501,7 +577,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 				log.Println("[Music] Close signal recognized during send")
 				// Stop streaming
 				log.Println("[Music] DCA Stream channel closed")
-				startCleanupProcess(v, ctx, stop, skip)
+				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
 			}
 		}
@@ -509,7 +585,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 }
 
 // TODO Play audio from remote server through WS
-func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, stop <-chan bool, skip <-chan bool) {
+func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, stop <-chan bool, skip <-chan bool, seek <-chan int) {
 
 	// Send "playing" message to the channel
 	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
@@ -601,7 +677,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 			close(send)
 			wsStop <- true
 			log.Println("[Music] DCA Streaming stopped")
-			startCleanupProcess(v, ctx, stop, skip)
+			startCleanupProcess(v, ctx, stop, skip, seek)
 			return
 		case data, ok := <-wsBuffer:
 			if !ok {
@@ -609,7 +685,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				wsStop <- true
 
 				log.Println("[Music] DCA buffer empty, ending stream")
-				startCleanupProcess(v, ctx, stop, skip)
+				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
 			}
 			select {
@@ -620,7 +696,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				close(send)
 				wsStop <- true
 				log.Println("[Music] DCA Streaming stopped")
-				startCleanupProcess(v, ctx, stop, skip)
+				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
 			}
 		}

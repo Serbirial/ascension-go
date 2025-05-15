@@ -36,7 +36,9 @@ type LanaBot struct {
 
 	StopChannel chan bool
 	SkipChannel chan bool
-	SongQueue   []*SongInfo
+	SeekChannel chan int
+
+	SongQueue []*SongInfo
 
 	IsPlaying     bool
 	IsDownloading bool
