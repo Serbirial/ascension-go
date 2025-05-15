@@ -654,10 +654,28 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 		case signal, ok := <-stop:
 			if ok && signal {
 				closeChannel <- true
+			drainStop: // Drain the buffer
+				for {
+					select {
+					case <-wsBuffer:
+						// drain element
+					default:
+						break drainStop // exit draining loop
+					}
+				}
 			}
 		case signal, ok := <-skip:
 			if ok && signal {
 				closeChannel <- true
+			drainSkip: // Drain the buffer
+				for {
+					select {
+					case <-wsBuffer:
+						// drain element
+					default:
+						break drainSkip // exit draining loop
+					}
+				}
 			}
 		case seekNum, ok := <-seek:
 			if ok {
