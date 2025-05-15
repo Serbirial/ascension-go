@@ -97,7 +97,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			currentFrame = targetFrame
 			smu.Unlock()
 
-		default: // Send the next frame
+		case <-time.After(5 * time.Millisecond): // Send the next frame
 			smu.Lock()
 			err := binary.Read(file, binary.LittleEndian, &opuslen)
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
