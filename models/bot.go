@@ -59,9 +59,10 @@ func (bot *LanaBot) ConnectToWS(url string, origin string) {
 		panic("error getting self")
 	}
 	msg := Message{
-		From: me.GlobalName,
+		From: me.Username,
 		URL:  "",
 		Stop: false,
+		Seek: 0,
 	}
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
@@ -81,9 +82,10 @@ func (bot *LanaBot) SendDownloadToWS(url string) *SongInfo {
 		panic("error getting self")
 	}
 	msg := Message{
-		From: me.GlobalName,
+		From: me.Username,
 		URL:  url,
 		Stop: false,
+		Seek: 0,
 	}
 	jsonDataSend, err := json.Marshal(msg)
 	if err != nil {
@@ -112,9 +114,10 @@ func (bot *LanaBot) SendStopToWS(url string) {
 		panic("error getting self")
 	}
 	msg := Message{
-		From: me.GlobalName,
+		From: me.Username,
 		URL:  "",
 		Stop: true,
+		Seek: 0,
 	}
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
@@ -124,6 +127,28 @@ func (bot *LanaBot) SendStopToWS(url string) {
 	if err != nil {
 		log.Fatal("Error while establishing connection:", err)
 		panic("CANT CONNECT TO WS! CANT SEND URL!")
+	}
+
+}
+func (bot *LanaBot) SendSeekToWS(seek int) {
+	me, err := bot.Session.User("@me")
+	if err != nil {
+		panic("error getting self")
+	}
+	msg := Message{
+		From: me.Username,
+		URL:  "",
+		Stop: false,
+		Seek: seek,
+	}
+	jsonData, err := json.Marshal(msg)
+	if err != nil {
+		log.Fatal("JSON Marshal error:", err)
+	}
+	err = websocket.Message.Send(bot.WebSocket, jsonData)
+	if err != nil {
+		log.Fatal("Error while establishing connection:", err)
+		panic("CANT CONNECT TO WS! CANT SEND SEEK!")
 	}
 
 }

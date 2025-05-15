@@ -13,6 +13,7 @@ type Message struct {
 	From string `json:"from"`
 	URL  string `json:"content"`
 	Stop bool   `json:"stop"`
+	Seek int    `json:"seek"`
 }
 
 // Struct to hold a connected client

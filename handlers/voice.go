@@ -168,6 +168,56 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 	}
 }
 
+func recoverBotLeftChannel(ctx *models.Context) *discordgo.VoiceConnection {
+	channelID, err := checks.GetUserVoiceChannel(ctx)
+	if err != nil {
+		ctx.Send("User left the voice channel")
+		return nil
+	}
+	v, err := ctx.Client.Session.ChannelVoiceJoin(ctx.GuildID, channelID, false, true)
+	if err != nil {
+		log.Println(err)
+		ctx.Send("Error joining the voice channel")
+		return nil
+	}
+	return v
+}
+
+// Helper: build frame index offsets
+func buildFrameIndex(file *os.File) ([]int64, error) {
+	var offsets []int64
+	var frameLen int16
+
+	_, err := file.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		pos, err := file.Seek(0, io.SeekCurrent)
+		if err != nil {
+			break
+		}
+		offsets = append(offsets, pos)
+
+		err = binary.Read(file, binary.LittleEndian, &frameLen)
+		if err != nil {
+			break
+		}
+
+		_, err = file.Seek(int64(frameLen), io.SeekCurrent)
+		if err != nil {
+			break
+		}
+	}
+
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+	return offsets, nil
+}
+
 // This plays the next song in the queue
 func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool, seek <-chan int) {
 	if len(ctx.Client.SongQueue) >= 1 {
@@ -354,56 +404,6 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 			return
 		}
 	}
-}
-
-func recoverBotLeftChannel(ctx *models.Context) *discordgo.VoiceConnection {
-	channelID, err := checks.GetUserVoiceChannel(ctx)
-	if err != nil {
-		ctx.Send("User left the voice channel")
-		return nil
-	}
-	v, err := ctx.Client.Session.ChannelVoiceJoin(ctx.GuildID, channelID, false, true)
-	if err != nil {
-		log.Println(err)
-		ctx.Send("Error joining the voice channel")
-		return nil
-	}
-	return v
-}
-
-// Helper: build frame index offsets
-func buildFrameIndex(file *os.File) ([]int64, error) {
-	var offsets []int64
-	var frameLen int16
-
-	_, err := file.Seek(0, io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-
-	for {
-		pos, err := file.Seek(0, io.SeekCurrent)
-		if err != nil {
-			break
-		}
-		offsets = append(offsets, pos)
-
-		err = binary.Read(file, binary.LittleEndian, &frameLen)
-		if err != nil {
-			break
-		}
-
-		_, err = file.Seek(int64(frameLen), io.SeekCurrent)
-		if err != nil {
-			break
-		}
-	}
-
-	_, err = file.Seek(0, io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-	return offsets, nil
 }
 
 func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool, seek <-chan int) {
@@ -641,17 +641,11 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	}()
 	defer close(closeChannel)
 
-	wsBuffer := make(chan []byte, 200) // 200 frames can be buffered from WS
-	defer close(wsBuffer)              // Close buffer
-	wsStop := make(chan bool, 1)       // Signal for quitting the WS receiver
-	defer func() { wsStop <- true }()  // Stop the WS receiver once done
-	defer close(wsStop)                // Close WS stop
-	//dcaOut := make(chan []byte, 200)                        // 200 frames can be buffered from the DCA converter output
-	//defer close(dcaOut)                                     // Close DCA buffer
-	//dcaStop := make(chan bool, 1)                           // Signal for quitting the converter
-	//defer func() { dcaStop <- true }()                      // Quit converter once done
-	//defer close(dcaStop)                                    // Close DCA stop channel
-	//go fs.ConvertToDCALive(wsBuffer, dcaOut, dcaStop)       // Convert everything in wsBuffer to DCA then put data in dcaOut
+	wsBuffer := make(chan []byte, 200)                      // 200 frames can be buffered from WS
+	defer close(wsBuffer)                                   // Close buffer
+	wsStop := make(chan bool, 1)                            // Signal for quitting the WS receiver
+	defer close(wsStop)                                     // Close WS stop
+	defer func() { wsStop <- true }()                       // Stop the WS receiver once done
 	go RecvByteData(ctx.Client.WebSocket, wsBuffer, wsStop) // Start receiving PCM data from WS
 
 	//when stop is sent, set stop bool to true

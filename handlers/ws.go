@@ -18,9 +18,11 @@ import (
 var (
 	Clients = make(map[*websocket.Conn]*models.Client)
 	Loops   = make(map[*websocket.Conn]chan bool)
+	Seeks   = make(map[*websocket.Conn]chan int)
 
 	clientsMu sync.Mutex
 	loopsMu   sync.Mutex
+	seeksMu   sync.Mutex
 )
 
 func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
@@ -34,16 +36,36 @@ func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 	}
 }
 
-func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool) {
+func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, seek <-chan int) {
 
 	file, err := os.Open(song.FilePath)
 	if err != nil {
 		log.Println("Error opening dca file :", err)
 	}
 	defer file.Close()
-	var opuslen int16
-	var frameBufPool = sync.Pool{
-		New: func() any { return make([]byte, 2048) }, // max expected opus frame
+
+	// Constants and state
+	const frameDuration = 20 * time.Millisecond
+	const frameRateDCA = int(time.Second / frameDuration) // 50 fps
+
+	var (
+		opuslen      int16
+		currentFrame int
+		smu          sync.Mutex
+		frameBufPool = sync.Pool{
+			New: func() any { return make([]byte, 2048) }, // max expected opus frame
+		}
+	)
+
+	// Build frame index
+	frameIndex, err := buildFrameIndex(file)
+	if err != nil {
+		log.Println("[WS] Error building frame index:", err)
+		return
+	}
+	if len(frameIndex) == 0 {
+		log.Println("[WS] Frame index is empty, aborting playback")
+		return
 	}
 
 	for {
@@ -51,37 +73,63 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool) {
 		case <-stop:
 			log.Println("[WS] Stop recognized")
 			return
-		case <-time.After(10 * time.Millisecond):
+
+		case seconds := <-seek: // Seek through file if the seek signal has been sent
+			smu.Lock()
+			frameDelta := int(seconds * frameRateDCA)
+			targetFrame := currentFrame + frameDelta
+			if targetFrame < 0 {
+				targetFrame = 0
+			}
+			if targetFrame >= len(frameIndex) {
+				targetFrame = len(frameIndex) - 1
+			}
+
+			_, err := file.Seek(frameIndex[targetFrame], io.SeekStart)
+			if err != nil {
+				log.Println("[WS] Seek error:", err)
+				smu.Unlock()
+				return
+			}
+			currentFrame = targetFrame
+			smu.Unlock()
+
+		case <-time.After(10 * time.Millisecond): // Send the next frame after 10ms
+			smu.Lock()
 			err := binary.Read(file, binary.LittleEndian, &opuslen)
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				return
+				smu.Unlock()
+				return // End of file
 			}
 			if err != nil {
 				log.Println("[WS] Error reading frame length:", err)
+				smu.Unlock()
 				return
 			}
 
 			buf := frameBufPool.Get().([]byte)
 			if int(opuslen) > cap(buf) {
-				buf = make([]byte, opuslen) // rare case fallback
+				buf = make([]byte, opuslen)
 			}
 			frame := buf[:opuslen]
 
 			err = binary.Read(file, binary.LittleEndian, &frame)
 			if err != nil {
 				log.Println("[WS] Error reading frame data:", err)
+				smu.Unlock()
 				return
 			}
 
 			err = websocket.Message.Send(ws, frame)
 			if err != nil {
 				log.Println("[WS] Error sending data:", err)
+				smu.Unlock()
 				return
 			}
+			currentFrame++
 			frameBufPool.Put(buf)
-
+			smu.Unlock()
 		}
-
 	}
 }
 
@@ -115,16 +163,13 @@ func HandleWebSocket(ws *websocket.Conn) {
 
 		// Process stop
 		if msg.Stop {
-			clientsMu.Lock()
-			delete(Clients, ws)
-			clientsMu.Unlock()
-
 			loopsMu.Lock()
 			if stop, ok := Loops[ws]; ok {
 				stop <- true
 				delete(Loops, ws)
 			}
 			loopsMu.Unlock()
+
 		} else if msg.URL != "" {
 			data, err := fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
 			if err != nil {
@@ -144,10 +189,18 @@ func HandleWebSocket(ws *websocket.Conn) {
 			}
 			loopsMu.Lock()
 			stopChannel := make(chan bool, 1)
-			defer close(stopChannel)
-			go sendByteData(ws, msg, stopChannel)
+			seekChannel := make(chan int, 1)
+
+			go sendByteData(ws, msg, stopChannel, seekChannel)
 			Loops[ws] = stopChannel
 			loopsMu.Unlock()
+		} else if msg.Seek != 0 {
+			seeksMu.Lock()
+			if seek, ok := Seeks[ws]; ok {
+				seek <- msg.Seek
+			}
+			seeksMu.Unlock()
+
 		}
 
 	}
@@ -156,4 +209,17 @@ func HandleWebSocket(ws *websocket.Conn) {
 	clientsMu.Lock()
 	delete(Clients, ws)
 	clientsMu.Unlock()
+	loopsMu.Lock()
+	if stop, ok := Loops[ws]; ok {
+		stop <- true
+		close(stop)
+		delete(Loops, ws)
+	}
+	loopsMu.Unlock()
+	seeksMu.Lock()
+	if seek, ok := Seeks[ws]; ok {
+		close(seek)
+		delete(Seeks, ws)
+	}
+	seeksMu.Unlock()
 }
