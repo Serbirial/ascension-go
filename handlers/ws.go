@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	Clients = make(map[string]map[string]*models.Client)
-	Loops   = make(map[string]map[string]chan bool)
-	Seeks   = make(map[string]map[string]chan int)
+	Clients = make(map[string]*models.Client)
+	Loops   = make(map[string]chan bool)
+	Seeks   = make(map[string]chan int)
 
 	clientsMu sync.Mutex
 	loopsMu   sync.Mutex
@@ -149,7 +149,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 
 	log.Println("[WS] Connected: ", ws.RemoteAddr())
 	var tempConnection bool = true // Assume temp connection
-	var reference string = ""
+	//var reference string = ""
 	var identifier string = ""
 
 	for {
@@ -160,23 +160,23 @@ func HandleWebSocket(ws *websocket.Conn) {
 			break
 		}
 
-		// Set the reference
-		reference = msg.From
+		// Set the reference and identifier
+		//reference = msg.From
 		identifier = msg.Identifier
 
 		// Register new clients after they send identifier (first recv)
 		clientsMu.Lock()
 
 		// Client already might exist (ex: is streaming from the server, but opened temporary WS connection)
-		_, exists := Clients[msg.From]
+		_, exists := Clients[identifier]
 		if !exists { // First time connection from a client means its main WS connection, dont replace that
 			tempConnection = false // First time connection from a client means its main WS connection
-			Clients[msg.From][identifier] = &models.Client{Conn: ws}
+			Clients[identifier] = &models.Client{Conn: ws}
 			// Set client's name if first message
-			if Clients[msg.From][identifier].Name == "" {
+			if Clients[identifier].Name == "" {
 				log.Println("[WS] Client sent identifier: ", msg.From)
 
-				Clients[msg.From][identifier].Name = msg.From
+				Clients[identifier].Name = msg.From
 			}
 		}
 
@@ -185,11 +185,12 @@ func HandleWebSocket(ws *websocket.Conn) {
 		// Process stop
 		if msg.Stop {
 			loopsMu.Lock()
-			if stop, ok := Loops[msg.From][identifier]; ok {
+			if stop, ok := Loops[identifier]; ok {
 				stop <- true
-				delete(Loops, msg.From)
+				delete(Loops, identifier)
 			}
 			loopsMu.Unlock()
+
 		} else if msg.URL != "" && msg.Download == true { // If theres a URL and download is true, only download
 			log.Println("[WS] Download received from " + msg.From)
 
@@ -231,12 +232,20 @@ func HandleWebSocket(ws *websocket.Conn) {
 			loopsMu.Lock()
 			seeksMu.Lock()
 
-			stopChannel := make(chan bool, 1)
-			seekChannel := make(chan int, 1)
+			seekChannel, exists := Seeks[identifier]
+			if !exists {
+				seekChannel := make(chan int, 1)
+				Seeks[identifier] = seekChannel
+			}
 
-			go sendByteData(Clients[msg.From][identifier].Conn, msgData, stopChannel, seekChannel)
-			Loops[msg.From][identifier] = stopChannel
-			Seeks[msg.From][identifier] = seekChannel
+			stopChannel, exists := Loops[identifier]
+			if !exists {
+				stopChannel := make(chan bool, 1)
+				Loops[identifier] = stopChannel
+			}
+			go sendByteData(Clients[identifier].Conn, msgData, stopChannel, seekChannel)
+			Loops[identifier] = stopChannel
+			Seeks[identifier] = seekChannel
 
 			loopsMu.Unlock()
 			seeksMu.Unlock()
@@ -244,7 +253,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 		} else if msg.Seek != 0 {
 			log.Println("[WS] Seek received from " + msg.From)
 			seeksMu.Lock()
-			if seek, ok := Seeks[msg.From][identifier]; ok {
+			if seek, ok := Seeks[identifier]; ok {
 				seek <- msg.Seek
 			}
 			seeksMu.Unlock()
@@ -257,19 +266,19 @@ func HandleWebSocket(ws *websocket.Conn) {
 	// Remove client on disconnect if not temp connection
 	if !tempConnection {
 		clientsMu.Lock()
-		delete(Clients, reference)
+		delete(Clients, identifier)
 		clientsMu.Unlock()
 		loopsMu.Lock()
-		if stop, ok := Loops[reference][identifier]; ok {
+		if stop, ok := Loops[identifier]; ok {
 			stop <- true
 			close(stop)
-			delete(Loops, reference)
+			delete(Loops, identifier)
 		}
 		loopsMu.Unlock()
 		seeksMu.Lock()
-		if seek, ok := Seeks[reference][identifier]; ok {
+		if seek, ok := Seeks[identifier]; ok {
 			close(seek)
-			delete(Seeks, reference)
+			delete(Seeks, identifier)
 		}
 		seeksMu.Unlock()
 	}
