@@ -501,9 +501,18 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		defer close(buffer)
 
 		for {
-			// Non-blocking check for seek request
 			select {
 			case seconds := <-seek:
+				// Drain buffer using labeled block
+			drain:
+				for {
+					select {
+					case <-buffer:
+						// drain element
+					default:
+						break drain // exit draining loop
+					}
+				}
 				smu.Lock()
 				frameDelta := int(seconds * frameRateDCA)
 				targetFrame := currentFrame + frameDelta
@@ -522,6 +531,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 				}
 				currentFrame = targetFrame
 				smu.Unlock()
+
 			default:
 				// Continue reading current frame
 				smu.Lock()
