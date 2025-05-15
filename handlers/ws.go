@@ -232,7 +232,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 			stopChannel := make(chan bool, 1)
 			seekChannel := make(chan int, 1)
 
-			go sendByteData(ws, msgData, stopChannel, seekChannel)
+			go sendByteData(Clients[msg.From].Conn, msgData, stopChannel, seekChannel)
 			Loops[msg.From] = stopChannel
 			Seeks[msg.From] = seekChannel
 
