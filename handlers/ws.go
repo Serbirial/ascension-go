@@ -180,9 +180,27 @@ func HandleWebSocket(ws *websocket.Conn) {
 				delete(Loops, ws)
 			}
 			loopsMu.Unlock()
-
-		} else if msg.URL != "" {
+		} else if msg.URL != "" && msg.Download == true { // If theres a URL and download is true, only download
 			log.Println("[WS] Download received from " + msg.From)
+
+			data, err := fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
+			if err != nil {
+				log.Fatal("[WS] Error while downloading song and info:", err)
+			}
+			msg := &models.SongInfo{
+				FilePath: data.FilePath,
+				Title:    data.Title,
+				Uploader: data.Uploader,
+				ID:       data.ID,
+				Duration: data.Duration,
+			}
+			jsonData, err := json.Marshal(msg)
+			err = websocket.Message.Send(ws, jsonData)
+			if err != nil {
+				log.Fatal("[WS] Error while sending song info:", err)
+			}
+		} else if msg.URL != "" && msg.Download == false { // If theres a URL but download is false, that means download&play
+			log.Println("[WS] Play received from " + msg.From)
 
 			data, err := fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
 			if err != nil {

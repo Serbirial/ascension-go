@@ -59,10 +59,11 @@ func (bot *LanaBot) ConnectToWS(url string, origin string) {
 		panic("error getting self")
 	}
 	msg := Message{
-		From: me.Username,
-		URL:  "",
-		Stop: false,
-		Seek: 0,
+		From:     me.Username,
+		URL:      "",
+		Stop:     false,
+		Seek:     0,
+		Download: false,
 	}
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
@@ -82,10 +83,11 @@ func (bot *LanaBot) SendDownloadToWS(url string) (*SongInfo, error) {
 		panic("error getting self")
 	}
 	msg := Message{
-		From: me.Username,
-		URL:  url,
-		Stop: false,
-		Seek: 0,
+		From:     me.Username,
+		URL:      url,
+		Stop:     false,
+		Seek:     0,
+		Download: true,
 	}
 	jsonDataSend, err := json.Marshal(msg)
 	if err != nil {
@@ -116,10 +118,11 @@ func (bot *LanaBot) SendStopToWS() {
 		panic("error getting self")
 	}
 	msg := Message{
-		From: me.Username,
-		URL:  "",
-		Stop: true,
-		Seek: 0,
+		From:     me.Username,
+		URL:      "",
+		Stop:     true,
+		Seek:     0,
+		Download: false,
 	}
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
@@ -138,10 +141,11 @@ func (bot *LanaBot) SendSeekToWS(seek int) {
 		panic("error getting self")
 	}
 	msg := Message{
-		From: me.Username,
-		URL:  "",
-		Stop: false,
-		Seek: seek,
+		From:     me.Username,
+		URL:      "",
+		Stop:     false,
+		Seek:     seek,
+		Download: false,
 	}
 	jsonData, err := json.Marshal(msg)
 	if err != nil {

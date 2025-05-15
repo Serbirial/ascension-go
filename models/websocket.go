@@ -10,10 +10,11 @@ import (
 
 // JSON message structure
 type Message struct {
-	From string `json:"from"`
-	URL  string `json:"content"`
-	Stop bool   `json:"stop"`
-	Seek int    `json:"seek"`
+	From     string `json:"from"`
+	URL      string `json:"content"`
+	Download bool   `json:"download"`
+	Stop     bool   `json:"stop"`
+	Seek     int    `json:"seek"`
 }
 
 // Struct to hold a connected client
