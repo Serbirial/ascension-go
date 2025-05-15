@@ -149,19 +149,23 @@ func HandleWebSocket(ws *websocket.Conn) {
 
 	log.Println("[WS] Connected: ", ws.RemoteAddr())
 	var tempConnection bool = true // Assume temp connection
-	//var reference string = ""
+	var name string = ""
 	var identifier string = ""
 
 	for {
 		var msg models.Message
 		// Read JSON message
 		if err := websocket.JSON.Receive(ws, &msg); err != nil {
-			log.Println("[WS] Disconnected: ", ws.RemoteAddr(), "-", err)
+			if tempConnection {
+				log.Println("[WS] Communication connection Closed: ", name, " ", identifier, "-", err)
+
+			}
+			log.Println("[WS] Streaming connection Closed: ", name, " ", identifier, "-", err)
 			break
 		}
 
 		// Set the reference and identifier
-		//reference = msg.From
+		name = msg.From
 		identifier = msg.Identifier
 
 		// Register new clients after they send identifier (first recv)
