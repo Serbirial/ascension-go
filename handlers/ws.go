@@ -240,13 +240,13 @@ func HandleWebSocket(ws *websocket.Conn) {
 
 			seekChannel, exists := Seeks[identifier]
 			if !exists {
-				seekChannel := make(chan int, 1)
+				seekChannel = make(chan int, 1)
 				Seeks[identifier] = seekChannel
 			}
 
 			stopChannel, exists := Loops[identifier]
 			if !exists {
-				stopChannel := make(chan bool, 1)
+				stopChannel = make(chan bool, 1)
 				Loops[identifier] = stopChannel
 			}
 			go sendByteData(Clients[identifier].Conn, msgData, stopChannel, seekChannel)
