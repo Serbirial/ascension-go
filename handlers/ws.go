@@ -37,7 +37,7 @@ func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 }
 
 func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, seek <-chan int) {
-
+	log.Println("[WS] Streaming started")
 	file, err := os.Open(song.FilePath)
 	if err != nil {
 		log.Println("Error opening dca file :", err)
@@ -72,11 +72,13 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 	for {
 		select {
 		case <-stop:
-			log.Println("[WS] Stop recognized")
+			log.Println("[WS] Streaming stopped")
 			return
 
 		case seconds := <-seek: // Seek through file if the seek signal has been sent
 			smu.Lock()
+			log.Println("[WS] Seeking.")
+
 			frameDelta := int(seconds * frameRateDCA)
 			targetFrame := currentFrame + frameDelta
 			if targetFrame < 0 {
@@ -172,6 +174,8 @@ func HandleWebSocket(ws *websocket.Conn) {
 			loopsMu.Unlock()
 
 		} else if msg.URL != "" {
+			log.Println("[WS] Download received from " + msg.From)
+
 			data, err := fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
 			if err != nil {
 				log.Fatal("[WS] Error while downloading song and info:", err)
@@ -202,11 +206,13 @@ func HandleWebSocket(ws *websocket.Conn) {
 			seeksMu.Unlock()
 
 		} else if msg.Seek != 0 {
+			log.Println("[WS] Seek received from " + msg.From)
 			seeksMu.Lock()
 			if seek, ok := Seeks[ws]; ok {
 				seek <- msg.Seek
 			}
 			seeksMu.Unlock()
+			log.Println("[WS] Seek received from " + msg.From + " sent to channel")
 
 		}
 
