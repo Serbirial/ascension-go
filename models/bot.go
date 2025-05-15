@@ -38,10 +38,10 @@ type LanaBot struct {
 	SkipChannels map[string]chan bool
 	SeekChannels map[string]chan int
 
-	SongQueue []*SongInfo
+	SongQueue map[string][]*SongInfo
 
-	IsPlaying     bool
-	IsDownloading bool
+	IsPlaying     map[string]bool
+	IsDownloading map[string]bool
 	Token         string
 	Owners        []int
 	Prefix        string
@@ -241,18 +241,18 @@ func (bot *LanaBot) SendSeekToWS(seek int, identifier string) {
 
 }
 
-func (bot *LanaBot) AddToQueue(song *SongInfo) {
-	bot.SongQueue = append(bot.SongQueue, song)
+func (bot *LanaBot) AddToQueue(guildID string, song *SongInfo) {
+	bot.SongQueue[guildID] = append(bot.SongQueue[guildID], song)
 }
-func (bot *LanaBot) SetQueue(queue []*SongInfo) {
-	bot.SongQueue = queue
+func (bot *LanaBot) SetQueue(guildID string, queue []*SongInfo) {
+	bot.SongQueue[guildID] = queue
 }
 
-func (bot *LanaBot) SetPlayingBool(toSet bool) {
-	bot.IsPlaying = toSet
+func (bot *LanaBot) SetPlayingBool(guildID string, toSet bool) {
+	bot.IsPlaying[guildID] = toSet
 }
-func (bot *LanaBot) SetDownloadingBool(toSet bool) {
-	bot.IsDownloading = toSet
+func (bot *LanaBot) SetDownloadingBool(guildID string, toSet bool) {
+	bot.IsDownloading[guildID] = toSet
 }
 
 func (bot *LanaBot) matchArgsToCommand(ctx *Context, argsRaw string) map[string]string {

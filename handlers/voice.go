@@ -222,10 +222,10 @@ func buildFrameIndex(file *os.File) ([]int64, error) {
 func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool, seek <-chan int) {
 	if len(ctx.Client.SongQueue) >= 1 {
 		// Get first SongInfo in Queue and play it
-		fmt.Println(ctx.Client.SongQueue)
-		fmt.Println(ctx.Client.SongQueue[0])
+		fmt.Println(ctx.Client.SongQueue[ctx.GuildID])
+		fmt.Println(ctx.Client.SongQueue[ctx.GuildID][0])
 
-		var song *models.SongInfo = ctx.Client.SongQueue[0]
+		var song *models.SongInfo = ctx.Client.SongQueue[ctx.GuildID][0]
 		url := "https://www.youtube.com/watch?v=" + song.ID // Build the URL for the WS server
 
 		ctx.Client.SendPlayToWS(url, ctx.GuildID) // Send to the WS server to play
@@ -250,16 +250,16 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	// Remove current song from queue and replace it with the updated one while clearing status
 	clearStatusAndRemoveCurrentSongFromQueue(ctx)
 	// Set Playing to false
-	ctx.Client.SetPlayingBool(false)
+	ctx.Client.SetPlayingBool(ctx.GuildID, false)
 	// Check if Queue is empty
-	if len(ctx.Client.SongQueue) >= 1 {
+	if len(ctx.Client.SongQueue[ctx.GuildID]) >= 1 {
 		log.Println("[Music] Queue is not empty, playing next song")
 		// FIXME
 		// Give the bot 2 seconds to prevent audio overlap
 		time.Sleep(2 * time.Second)
 		// Play the next song
 		playNextSongInQueue(v, ctx, stop, skip, seek)
-	} else if len(ctx.Client.SongQueue) == 0 { // Queue was empty
+	} else if len(ctx.Client.SongQueue[ctx.GuildID]) == 0 { // Queue was empty
 		log.Println("[Music] Queue is empty, waiting for activity")
 		// Wait 60s to see if activity happens
 		var tries int = 0
@@ -268,14 +268,14 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 				break
 			}
 			time.Sleep(1 * time.Second)
-			if len(ctx.Client.SongQueue) >= 1 { // queue is no longer empty
+			if len(ctx.Client.SongQueue[ctx.GuildID]) >= 1 { // queue is no longer empty
 				log.Println("[Music] Activity in queue")
 				break
 			}
 			tries++
 		}
-		if len(ctx.Client.SongQueue) == 0 { // Disconnect after the 300s if the queue is still empty
-			if !ctx.Client.IsDownloading { // Only disconnect if not currently downloading
+		if len(ctx.Client.SongQueue[ctx.GuildID]) == 0 { // Disconnect after the 300s if the queue is still empty
+			if !ctx.Client.IsDownloading[ctx.GuildID] { // Only disconnect if not currently downloading
 				log.Println("[Music] Disconnecting because no activity and empty queue")
 				v.Disconnect()
 				return
@@ -286,8 +286,8 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 
 func clearStatusAndRemoveCurrentSongFromQueue(ctx *models.Context) {
 	ctx.Client.Session.UpdateCustomStatus("")
-	temp := arrays.RemoveFirstSong(ctx.Client.SongQueue)
-	ctx.Client.SetQueue(temp)
+	temp := arrays.RemoveFirstSong(ctx.Client.SongQueue[ctx.GuildID])
+	ctx.Client.SetQueue(ctx.GuildID, temp)
 }
 
 // PlayAudioFile will play the given filename to the already connected
@@ -298,7 +298,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
 	// Set status
 	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
-	ctx.Client.SetPlayingBool(true)
+	ctx.Client.SetPlayingBool(ctx.GuildID, true)
 
 	// Create a shell command "object" to run.
 	run := exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
@@ -329,9 +329,9 @@ func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *
 			ctx.Client.Session.UpdateCustomStatus("")
 			log.Println("[Music] Stop signal sent")
 			// Remove current song from queue
-			temp := arrays.RemoveFirstSong(ctx.Client.SongQueue)
+			temp := arrays.RemoveFirstSong(ctx.Client.SongQueue[ctx.GuildID])
 			// Replace queue with updated one
-			ctx.Client.SetQueue(temp)
+			ctx.Client.SetQueue(ctx.GuildID, temp)
 			// Kill ffmpeg
 			err = run.Process.Kill()
 			log.Println("[Music] FFMPEG killed")
@@ -422,7 +422,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
 	// Set status
 	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
-	ctx.Client.SetPlayingBool(true)
+	ctx.Client.SetPlayingBool(ctx.GuildID, true)
 
 	// Send "speaking" packet over the voice websocket
 	err = checks.BotInVoice(ctx)
@@ -601,7 +601,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
 	// Set status
 	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
-	ctx.Client.SetPlayingBool(true)
+	ctx.Client.SetPlayingBool(ctx.GuildID, true)
 
 	// Send "speaking" packet over the voice websocket
 	err := checks.BotInVoice(ctx)

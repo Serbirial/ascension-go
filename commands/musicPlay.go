@@ -57,17 +57,17 @@ func playCommand(ctx *models.Context, args map[string]string) {
 
 	// If the bot is currently downloading, wait for download to finish before starting next download.
 	for {
-		if ctx.Client.IsDownloading {
+		if ctx.Client.IsDownloading[ctx.GuildID] {
 			// keep looping until IsDownloading is false
 			time.Sleep(1 * time.Second)
-		} else if !ctx.Client.IsDownloading {
+		} else if !ctx.Client.IsDownloading[ctx.GuildID] {
 			// exit the loop and download the song
 			break
 		}
 	}
 
 	// Set the downloading bool to true
-	ctx.Client.SetDownloadingBool(true)
+	ctx.Client.SetDownloadingBool(ctx.GuildID, true)
 	// Download the youtube URL to a file
 	ctx.Send("Downloading...")
 	//songInfo, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
@@ -78,16 +78,16 @@ func playCommand(ctx *models.Context, args map[string]string) {
 		return
 	}
 	// Set the downloading bool back to false
-	ctx.Client.SetDownloadingBool(false)
+	ctx.Client.SetDownloadingBool(ctx.GuildID, false)
 
 	// Add the song to the queue
-	ctx.Client.AddToQueue(songInfo)
+	ctx.Client.AddToQueue(ctx.GuildID, songInfo)
 
 	ctx.Send("Added `" + songInfo.Title + "` to queue")
 
 	// Nothing is playing: start playing song instantly.
-	if ctx.Client.IsPlaying == false {
-		ctx.Client.SetPlayingBool(true)                   // Set playing
+	if ctx.Client.IsPlaying[ctx.GuildID] == false {
+		ctx.Client.SetPlayingBool(ctx.GuildID, true)      // Set playing
 		ctx.Client.SendPlayToWS(args["url"], ctx.GuildID) // Notify the WS server to start playing the song
 		handlers.PlayFromWS(voice, ctx, songInfo, ctx.Client.StopChannels[ctx.GuildID], ctx.Client.SkipChannels[ctx.GuildID], ctx.Client.SeekChannels[ctx.GuildID])
 
