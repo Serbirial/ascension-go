@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"strconv"
@@ -58,7 +57,7 @@ func startProfiler() {
 func startWS() {
 	http.Handle("/ws", websocket.Handler(handlers.HandleWebSocket))
 
-	fmt.Println("WebSocket server running on :8182")
+	log.Println("[WS] Server running on :8182")
 	log.Fatal(http.ListenAndServe("localhost:8182", nil))
 }
 

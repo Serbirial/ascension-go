@@ -641,7 +641,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	}()
 	defer close(closeChannel)
 
-	wsBuffer := make(chan []byte, 50)                       // 50 frames can be buffered from WS
+	wsBuffer := make(chan []byte, 0)                        // Inf frames can be buffered from WS
 	defer close(wsBuffer)                                   // Close buffer
 	wsStop := make(chan bool, 1)                            // Signal for quitting the WS receiver
 	defer close(wsStop)                                     // Close WS stop
@@ -661,6 +661,15 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 			}
 		case seekNum, ok := <-seek:
 			if ok {
+			drain: // Drain the buffer
+				for {
+					select {
+					case <-wsBuffer:
+						// drain element
+					default:
+						break drain // exit draining loop
+					}
+				}
 				ctx.Client.SendSeekToWS(seekNum)
 			}
 		}
