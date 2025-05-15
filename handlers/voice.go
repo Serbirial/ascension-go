@@ -12,14 +12,11 @@ import (
 	"ascension/models"
 	"ascension/utils/arrays"
 	"ascension/utils/checks"
-	"bufio"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"os/exec"
-	"strconv"
 	"sync"
 	"time"
 
@@ -57,48 +54,6 @@ var OnError = func(prefix string, str string, err error) {
 		fmt.Println(prefix + ": " + err.Error())
 	} else {
 		fmt.Println(prefix)
-	}
-}
-
-// SendPCM will receive on the provied channel encode
-// received PCM data into Opus then send that to Discordgo
-// TODO: download as opus or convert to opus so i can cut out usage of gopus opus encoding
-func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
-	if pcm == nil {
-		return
-	}
-
-	var err error
-
-	opusEncoder, err = gopus.NewEncoder(frameRate, channels, gopus.Audio)
-
-	if err != nil {
-		OnError("[Music]", "NewEncoder Error", err)
-		return
-	}
-
-	for {
-
-		// read pcm from chan, exit if channel is closed.
-		recv, ok := <-pcm
-		if !ok {
-			OnError("[Music]", "PCM Channel closed", nil)
-			return
-		}
-		// try encoding pcm frame with Opus
-		opus, err := opusEncoder.Encode(recv, frameSize, maxBytes)
-		if err != nil {
-			OnError("[Music]", "Encoding Error", err)
-			return
-		}
-
-		if v.Ready == false || v.OpusSend == nil {
-			// OnError("[Music]",fmt.Sprintf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
-			// Sending errors here might not be suited
-			return
-		}
-		// send encoded opus data to the sendOpus channel
-		v.OpusSend <- opus
 	}
 }
 
@@ -288,125 +243,6 @@ func clearStatusAndRemoveCurrentSongFromQueue(ctx *models.Context) {
 	ctx.Client.Session.UpdateCustomStatus("")
 	temp := arrays.RemoveFirstSong(ctx.Client.SongQueue[ctx.GuildID])
 	ctx.Client.SetQueue(ctx.GuildID, temp)
-}
-
-// PlayAudioFile will play the given filename to the already connected
-// Discord voice server/channel.  voice websocket and udp socket
-// must already be setup before this will work.
-func PlayAudioFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool, seek <-chan int) {
-	// Send "playing" message to the channel
-	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
-	// Set status
-	ctx.Client.Session.UpdateCustomStatus("Playing: " + songInfo.Title)
-	ctx.Client.SetPlayingBool(ctx.GuildID, true)
-
-	// Create a shell command "object" to run.
-	run := exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
-	ffmpegout, err := run.StdoutPipe()
-	if err != nil {
-		OnError("[Music]", "StdoutPipe Error", err)
-		return
-	}
-
-	ffmpegbuf := bufio.NewReaderSize(ffmpegout, 16384*20)
-
-	// Starts the ffmpeg command
-	err = run.Start()
-	if err != nil {
-		OnError("[Music]", "RunStart Error", err)
-		return
-	}
-
-	// prevent memory leak from residual ffmpeg streams
-	defer run.Process.Kill()
-
-	//when stop is sent, kill ffmpeg
-	go func() {
-		signal := <-stop
-		log.Println("[Music] Received signal")
-		if signal == true {
-			// Remove the 'Playing X' status
-			ctx.Client.Session.UpdateCustomStatus("")
-			log.Println("[Music] Stop signal sent")
-			// Remove current song from queue
-			temp := arrays.RemoveFirstSong(ctx.Client.SongQueue[ctx.GuildID])
-			// Replace queue with updated one
-			ctx.Client.SetQueue(ctx.GuildID, temp)
-			// Kill ffmpeg
-			err = run.Process.Kill()
-			log.Println("[Music] FFMPEG killed")
-		}
-
-	}()
-
-	//when skip is sent, do the cleanup process so the next song can be played
-	go func() {
-		signal := <-skip
-		log.Println("[Music] Received signal")
-		if signal == true {
-			// Remove the 'Playing X' status
-			ctx.Client.Session.UpdateCustomStatus("")
-			log.Println("[Music] Skip signal sent")
-			err = run.Process.Kill()
-			log.Println("[Music] FFMPEG killed")
-			startCleanupProcess(v, ctx, stop, skip, seek)
-		}
-	}()
-
-	// Send "speaking" packet over the voice websocket
-	err = v.Speaking(true)
-	if err != nil {
-		OnError("[Music]", "Couldn't set speaking", err)
-	}
-
-	// Send not "speaking" packet over the websocket when we finish and start the cleanup
-	defer func() {
-		// Remove the 'Playing X' status
-		ctx.Client.Session.UpdateCustomStatus("")
-		err = checks.BotInVoice(ctx)
-		if err != nil {
-			v = recoverBotLeftChannel(ctx) // This should only error when already not speaking
-			if v == nil {
-				return
-			}
-		}
-		err = v.Speaking(false)
-		if err != nil {
-			log.Fatalf("Error while setting speaking: %s", err)
-
-		}
-
-		startCleanupProcess(v, ctx, stop, skip, seek)
-	}()
-
-	send := make(chan []int16, 2)
-	defer close(send)
-
-	close := make(chan bool)
-	go func() {
-		SendPCM(v, send)
-		close <- true
-	}()
-
-	for {
-		// read data from ffmpeg stdout
-		var data []int16 = make([]int16, frameSize*channels)
-		err = binary.Read(ffmpegbuf, binary.LittleEndian, &data)
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			return
-		}
-		if err != nil {
-			OnError("[Music]", "error reading from ffmpeg stdout", err)
-			return
-		}
-
-		// Send received PCM to the sendPCM channel
-		select {
-		case send <- data:
-		case <-close:
-			return
-		}
-	}
 }
 
 func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool, seek <-chan int) {
@@ -635,7 +471,6 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 
 	send := make(chan []byte, 20) // 20 frames can be buffered for sending
 	// setting the buffer too high for `send` MIGHT cause audio overlap when playing the next song in queue
-	defer close(send)
 
 	closeChannel := make(chan bool, 1)
 	go func() {
@@ -678,17 +513,9 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 							break drainWS
 						}
 					}
-				drainSend:
-					for {
-						select {
-						case <-send:
-						default:
-							break drainSend
-						}
-					}
 					// Send the seek signal to the WS server
 					ctx.Client.SendSeekToWS(seekNum, ctx.GuildID)
-
+					DrainWebSocketBuffer(ctx.Client.Websockets[ctx.GuildID], 10*time.Millisecond) // Set timeout to 10ms because the WS server sends every 5ms
 					// Start receiving new frames from the server again
 					go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop)
 
@@ -715,6 +542,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 			if !ok {
 				// WS stream channel closed
 				log.Println("[Music] WS buffer closed, ending stream")
+				close(send)
 				wsStop <- true
 				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
