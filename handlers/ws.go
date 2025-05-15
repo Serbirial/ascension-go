@@ -207,7 +207,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 			if err != nil {
 				log.Fatal("[WS] Error while sending song info:", err)
 			}
-		} else if msg.URL != "" && msg.Download == false && !tempConnection { // If theres a URL but download is false, that means download&play, but this should only happen on a main connection
+		} else if msg.URL != "" && msg.Download == false { // If theres a URL but download is false, that means download&play
 			log.Println("[WS] Play received from " + msg.From)
 
 			data, err := fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
