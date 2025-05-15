@@ -41,6 +41,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 	file, err := os.Open(song.FilePath)
 	if err != nil {
 		log.Println("Error opening dca file :", err)
+		return
 	}
 	defer file.Close()
 
@@ -188,12 +189,18 @@ func HandleWebSocket(ws *websocket.Conn) {
 				log.Fatal("[WS] Error while sending song info:", err)
 			}
 			loopsMu.Lock()
+			seeksMu.Lock()
+
 			stopChannel := make(chan bool, 1)
 			seekChannel := make(chan int, 1)
 
 			go sendByteData(ws, msg, stopChannel, seekChannel)
 			Loops[ws] = stopChannel
+			Seeks[ws] = seekChannel
+
 			loopsMu.Unlock()
+			seeksMu.Unlock()
+
 		} else if msg.Seek != 0 {
 			seeksMu.Lock()
 			if seek, ok := Seeks[ws]; ok {
