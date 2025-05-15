@@ -439,10 +439,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		// Remove the 'Playing X' status
 		err := checks.BotInVoice(ctx)
 		if err != nil {
-			v = recoverBotLeftChannel(ctx) // This should only error when the bot leaves pre-maturely
-			if v == nil {
-				return
-			}
+			return // Bot already left
 		}
 		ctx.Client.Session.UpdateCustomStatus("")
 		err = v.Speaking(false)
