@@ -162,11 +162,12 @@ func HandleWebSocket(ws *websocket.Conn) {
 		// Set the reference
 		reference = msg.From
 
-		// Register new client after they send identifier (first recv)
+		// Register new clients after they send identifier (first recv)
 		clientsMu.Lock()
+
+		// Client already might exist (ex: is streaming from the server, but opened temporary WS connection)
 		_, exists := Clients[msg.From]
-		if !exists { // Client already might exist (ex: is playing music, but opened temporary WS connection)
-			// So we dont wanna replace that connection as a permanent connection- only keep it around until the bot closes it
+		if !exists { // First time connection from a client means its main WS connection, dont replace that
 			tempConnection = false // First time connection from a client means its main WS connection
 			Clients[msg.From] = &models.Client{Conn: ws}
 			// Set client's name if first message

@@ -147,6 +147,8 @@ func (bot *LanaBot) SendDownloadToWS(url string) (*SongInfo, error) {
 }
 
 func (bot *LanaBot) SendPlayToWS(url string) (*SongInfo, error) {
+	ws := bot.CreateTempWS(bot.WsUrl, bot.WsOrigin) // Create a new WS connection for communicating with the server
+	defer ws.Close()
 	me, err := bot.Session.User("@me")
 	if err != nil {
 		panic("error getting self")
@@ -162,13 +164,13 @@ func (bot *LanaBot) SendPlayToWS(url string) (*SongInfo, error) {
 	if err != nil {
 		log.Fatal("JSON Marshal error:", err)
 	}
-	err = websocket.Message.Send(bot.WebSocket, jsonDataSend)
+	err = websocket.Message.Send(ws, jsonDataSend)
 	if err != nil {
 		log.Fatal("Error while establishing connection:", err)
 		panic("CANT CONNECT TO WS! CANT SEND URL!")
 	}
 	var jsonDataRecv []byte
-	if err := websocket.Message.Receive(bot.WebSocket, &jsonDataRecv); err != nil {
+	if err := websocket.Message.Receive(ws, &jsonDataRecv); err != nil {
 		log.Fatalf("Failed to receive: %v", err)
 		return nil, err
 	}
