@@ -79,8 +79,9 @@ func startBot() {
 	var stopChannels = make(map[string]chan bool)
 	var skipChannels = make(map[string]chan bool)
 	var seekChannels = make(map[string]chan int)
+	var websockets = make(map[string]*websocket.Conn)
 
-	var Bot = models.LanaBot{Session: session, StopChannels: stopChannels, SkipChannels: skipChannels, SeekChannels: seekChannels, Token: token, Owners: owners, Prefix: prefix, Commands: commandList, WsUrl: wsURL, WsOrigin: wsOrigin}
+	var Bot = models.LanaBot{Session: session, Websockets: websockets, StopChannels: stopChannels, SkipChannels: skipChannels, SeekChannels: seekChannels, Token: token, Owners: owners, Prefix: prefix, Commands: commandList, WsUrl: wsURL, WsOrigin: wsOrigin}
 	Bot.AddCommands(commands.AllCommands)
 	session.Identify.Intents = models.Intents
 
