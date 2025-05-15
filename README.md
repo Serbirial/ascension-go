@@ -91,6 +91,6 @@ This project is under the (license in progress). For more details, see the [LICE
 
 ## Disclaimer!! ##
 The main branch of ascension will be considered a rolling release until an official release is put in the releases section.\
-After the first stable release; the main branch will go back to being a mostly-stable release of the bot, and a dev branch will be made in its place.\
+After the first stable release; the main branch will go back to being a mostly-stable release of the bot, and a dev branch will be made in its place.
 
 <a href="#top">Back to top</a>
