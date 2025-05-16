@@ -566,6 +566,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 		select {
 		case <-dcaDoneChannel:
 			mu.Lock()
+			wsStop <- true
 			log.Println("[Music] WS is done streaming, sending confirmation back")
 			ctx.Client.SendDONEToWS(ctx.GuildID)
 			log.Println("[Music] Confirmation sent")
