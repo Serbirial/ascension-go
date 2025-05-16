@@ -243,7 +243,9 @@ func HandleWebSocket(ws *websocket.Conn) {
 					break
 				}
 				if msg.Done {
-					log.Println("[WS] Streaming connection DONE")
+					log.Println("[WS] Streaming connection DONE, sending back DONE in confirmation")
+					_ = websocket.Message.Send(ws, []byte("DONE")) // Send DONE so the bot knows everything is OK and DONE
+					break
 				}
 			}
 		}
