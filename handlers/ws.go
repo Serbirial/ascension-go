@@ -127,7 +127,6 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			if err := seekToFrame(targetFrame); err != nil {
 				log.Println("[WS] Seek error:", err)
 			}
-			time.Sleep(1 * time.Second)
 
 		case <-time.After(5 * time.Millisecond):
 			if currentFrame >= len(frameIndex) {
