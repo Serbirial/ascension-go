@@ -230,7 +230,8 @@ func HandleWebSocket(ws *websocket.Conn) {
 				log.Println("[WS] Received DONE, sending back DONE in confirmation")
 
 				_ = websocket.Message.Send(ws, []byte("DONE")) // Send DONE so the bot knows everything is OK and DONE
-				break
+				time.Sleep(25 * time.Millisecond)              // Give the bot time to process that
+				break                                          // Break from loop and close connection if not already closed
 
 			}
 		} else {
