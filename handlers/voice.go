@@ -473,7 +473,6 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	send := make(chan []byte, 20) // 20 frames can be buffered for sending
 	var sendPaused = false
 	var doCloseChannel int32 = 1 // 1 = true, 0 = false
-	var doCloseMu sync.RWMutex
 
 	// setting the buffer too high for `send` MIGHT cause audio overlap when playing the next song in queue
 
