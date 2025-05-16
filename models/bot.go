@@ -66,7 +66,7 @@ func (bot *LanaBot) ConnectToWS(url string, origin string, identifier string) *w
 		Identifier: identifier,
 		URL:        "",
 		Stop:       false,
-		Seek:       0,
+		Seek:       -1,
 		Download:   false,
 	}
 	jsonData, err := json.Marshal(msg)
@@ -93,7 +93,7 @@ func (bot *LanaBot) CreateTempWS(url string, origin string, identifier string) *
 		From:       me.Username,
 		URL:        "",
 		Stop:       false,
-		Seek:       0,
+		Seek:       -1,
 		Download:   false,
 		Identifier: identifier,
 	}
@@ -121,7 +121,7 @@ func (bot *LanaBot) SendDownloadToWS(url string, identifier string) (*SongInfo, 
 		From:       me.Username,
 		URL:        url,
 		Stop:       false,
-		Seek:       0,
+		Seek:       -1,
 		Download:   true,
 		Identifier: identifier,
 	}
@@ -160,7 +160,7 @@ func (bot *LanaBot) SendPlayToWS(url string, identifier string) (*SongInfo, erro
 		From:       me.Username,
 		URL:        url,
 		Stop:       false,
-		Seek:       0,
+		Seek:       -1,
 		Download:   false,
 		Identifier: identifier,
 	}
@@ -199,7 +199,7 @@ func (bot *LanaBot) SendStopToWS(identifier string) {
 		From:       me.Username,
 		URL:        "",
 		Stop:       true,
-		Seek:       0,
+		Seek:       -1,
 		Download:   false,
 		Identifier: identifier,
 	}

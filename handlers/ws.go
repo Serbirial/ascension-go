@@ -45,6 +45,8 @@ func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 }
 
 func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, seek <-chan int) {
+	ticker := time.NewTicker(5 * time.Millisecond)
+	defer ticker.Stop()
 	log.Println("[WS] Streaming started")
 
 	file, err := os.Open(song.FilePath)
@@ -127,8 +129,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			if err := seekToFrame(targetFrame); err != nil {
 				log.Println("[WS] Seek error:", err)
 			}
-
-		case <-time.After(5 * time.Millisecond):
+		case <-ticker.C:
 			if currentFrame >= len(frameIndex) {
 				log.Println("[WS] Reached end of stream")
 				_ = websocket.Message.Send(ws, []byte("DONE"))
@@ -268,7 +269,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 
 			seekChannel, exists := Seeks[identifier]
 			if !exists {
-				seekChannel = make(chan int, 1)
+				seekChannel = make(chan int)
 				Seeks[identifier] = seekChannel
 			}
 
@@ -284,7 +285,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 			loopsMu.Unlock()
 			seeksMu.Unlock()
 
-		} else if msg.Seek != 0 {
+		} else if msg.Seek >= 0 {
 			log.Println("[WS] Seek received from " + msg.From)
 			seeksMu.Lock()
 			if seek, ok := Seeks[identifier]; ok {
