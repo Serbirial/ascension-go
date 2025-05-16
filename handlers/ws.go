@@ -44,7 +44,7 @@ func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 }
 
 func sendByteData(identifier string, ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, seek <-chan int, startFrame int, done <-chan bool) {
-	ticker := time.NewTicker(15 * time.Millisecond) // 5ms under discords needed send timing to allow for buffering 2 frames at a time
+	ticker := time.NewTicker(15 * time.Millisecond) // 5ms under discords needed send timing to allow for buffering 4 frames at a time
 	defer ticker.Stop()
 	log.Println("[WS] Streaming connection started")
 
