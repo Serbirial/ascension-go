@@ -121,7 +121,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 				currentFrame = targetFrame
 			}
 			smu.Unlock()
-			time.Sleep(1 * time.Second) // Wait 1s for the bot to drain buffer and do everything needed before sending more data
+			time.Sleep(2 * time.Second) // Wait 2s for the bot to drain buffer and do everything needed before sending more data
 
 		case <-time.After(5 * time.Millisecond):
 			smu.Lock()
