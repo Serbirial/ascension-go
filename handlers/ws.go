@@ -178,9 +178,11 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 						}
 					}()
 
+				} else {
+					log.Println("[WS] Error reading frame length:", err)
+					return
+
 				}
-				log.Println("[WS] Error reading frame length:", err)
-				return
 			}
 
 			// Get buffer from pool or allocate if too small
