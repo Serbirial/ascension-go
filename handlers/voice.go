@@ -502,12 +502,22 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				}
 			case seekNum, ok := <-seek:
 				if ok {
+					wsStop <- true // Stop receiving audio from WS server until done
+					// Drain wsBuffer to discard pre-seek frames
+				drain:
+					for {
+						select {
+						case <-wsBuffer:
+							// Discard frame
+						default:
+							break drain
+						}
+					}
 					log.Printf("[Music] Seek requested to: %d seconds", seekNum)
-					//wsStop <- true // Stop receiving audio from WS server until done
 					// Send the seek signal to the WS server
 					ctx.Client.SendSeekToWS(seekNum, ctx.GuildID)
 					// Start receiving new frames from the server again
-					//go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop)
+					go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop)
 
 				}
 			}

@@ -132,7 +132,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 					log.Println("[WS] Seek error:", err)
 				}
 				pendingSeek = nil
-				time.Sleep(1 * time.Second)
+				time.Sleep(1 * time.Second) // Allow client to catch up
 				continue
 			}
 			if currentFrame >= len(frameIndex) {
