@@ -31,7 +31,7 @@ func convertToDCA(file string) string {
 	dca.Stdin = ffmpegOut
 	dca.Stdout = outFile
 
-	ffmpeg.Stderr = os.Stderr // Show logs in terminal
+	//ffmpeg.Stderr = os.Stderr // Show logs in terminal
 
 	// Start ffmpeg first
 	if err := ffmpeg.Start(); err != nil {
