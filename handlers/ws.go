@@ -119,8 +119,10 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			}
 		doneDrain:
 
-			frameDelta := int(seconds * frameRateDCA)
-			targetFrame := currentFrame + frameDelta
+			// Interpret seconds as absolute time (seconds)
+			targetFrame := int(seconds * frameRateDCA)
+
+			log.Printf("[WS] Seeking: currentFrame=%d, requestedSeconds=%d, targetFrame=%d", currentFrame, seconds, targetFrame)
 
 			if err := seekToFrame(targetFrame); err != nil {
 				log.Println("[WS] Seek error:", err)
