@@ -470,6 +470,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	}()
 
 	send := make(chan []byte, 20) // 20 frames can be buffered for sending
+	var sendPaused = false
 	// setting the buffer too high for `send` MIGHT cause audio overlap when playing the next song in queue
 
 	closeChannel := make(chan bool, 1)
@@ -502,14 +503,16 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				}
 			case seekNum, ok := <-seek:
 				if ok {
-					wsStop <- true // Stop receiving audio from WS server until done
+					sendPaused = true
+					wsStop <- true                // Stop receiving audio from WS server until done
+					close(send)                   // Stop sending audio to Discord
+					send := make(chan []byte, 20) // Re-make the buffer
+
 					// Drain wsBuffer to discard pre-seek frames
 				drain:
 					for {
 						select {
 						case <-wsBuffer:
-							// Discard frame
-						case <-send:
 							// Discard frame
 						default:
 							break drain
@@ -518,7 +521,13 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					log.Printf("[Music] Seek requested to: %d seconds", seekNum)
 					// Send the seek signal to the WS server
 					ctx.Client.SendSeekToWS(seekNum, ctx.GuildID)
+					// Start sending audio to discord again
+					go func() {
+						SendDCA(v, send)
+						closeChannel <- true
+					}()
 					// Start receiving new frames from the server again
+
 					go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop)
 
 				}
@@ -556,21 +565,10 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
 			}
-			select {
-			case send <- data:
-			case <-closeChannel:
-				log.Println("[Music] Close signal recognized during send")
-				// Stop WS/Stream
-				close(send)
-				wsStop <- true
-				log.Println("[Music] WS recv stopped")
-				log.Println("[Music] Sending stop to WS server")
-				ctx.Client.SendStopToWS(ctx.GuildID)
-				log.Println("[Music] Sent stop to WS server")
-				log.Println("[Music] WS Streaming stopped")
-				startCleanupProcess(v, ctx, stop, skip, seek)
-				return
+			if !sendPaused { // Dont send when paused
+				send <- data
 			}
+
 		}
 	}
 }
