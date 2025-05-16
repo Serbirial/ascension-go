@@ -18,6 +18,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -471,7 +472,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 
 	send := make(chan []byte, 20) // 20 frames can be buffered for sending
 	var sendPaused = false
-	var doCloseChannel = true
+	var doCloseChannel int32 = 1 // 1 = true, 0 = false
 	var doCloseMu sync.RWMutex
 
 	// setting the buffer too high for `send` MIGHT cause audio overlap when playing the next song in queue
@@ -480,9 +481,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 
 	go func() {
 		SendDCA(v, send)
-		doCloseMu.RLock()
-		defer doCloseMu.RUnlock()
-		if doCloseChannel {
+		if atomic.LoadInt32(&doCloseChannel) == 1 {
 			closeChannel <- true
 		}
 	}()
@@ -513,9 +512,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 			case seekNum, ok := <-seek:
 				if ok {
 					mu.Lock() // Lock when seeking to prevent race condition
-					doCloseMu.Lock()
-					doCloseChannel = false
-					doCloseMu.Unlock()
+					atomic.StoreInt32(&doCloseChannel, 0)
 					sendPaused = true
 					wsStop <- true               // Stop receiving audio from WS server until done
 					close(send)                  // Stop sending audio to Discord
@@ -538,9 +535,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					// Start sending audio to discord again
 					go func() {
 						SendDCA(v, send)
-						doCloseMu.RLock()
-						defer doCloseMu.RUnlock()
-						if doCloseChannel {
+						if atomic.LoadInt32(&doCloseChannel) == 1 {
 							closeChannel <- true
 						}
 					}()
@@ -550,9 +545,8 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop)
 					// Un-pause the send and dont skip sending the close channel signal
 					sendPaused = false
-					doCloseMu.Lock()
-					doCloseChannel = true
-					doCloseMu.Unlock()
+					atomic.StoreInt32(&doCloseChannel, 1)
+
 					mu.Unlock()
 
 				}
