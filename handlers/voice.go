@@ -471,12 +471,15 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 
 	send := make(chan []byte, 20) // 20 frames can be buffered for sending
 	var sendPaused = false
+	var doCloseChannel = true
 	// setting the buffer too high for `send` MIGHT cause audio overlap when playing the next song in queue
 
 	closeChannel := make(chan bool, 1)
 	go func() {
 		SendDCA(v, send)
-		closeChannel <- true
+		if doCloseChannel {
+			closeChannel <- true
+		}
 	}()
 	defer close(closeChannel)
 
@@ -503,6 +506,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				}
 			case seekNum, ok := <-seek:
 				if ok {
+					doCloseChannel = false
 					sendPaused = true
 					wsStop <- true               // Stop receiving audio from WS server until done
 					close(send)                  // Stop sending audio to Discord
@@ -525,12 +529,16 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					// Start sending audio to discord again
 					go func() {
 						SendDCA(v, send)
-						closeChannel <- true
+						if doCloseChannel {
+							closeChannel <- true
+						}
 					}()
 					// Start receiving new frames from the server again
 
 					go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop)
+					// Un-pause the send and dont skip sending the close channel signal
 					sendPaused = false
+					doCloseChannel = true
 
 				}
 			}
