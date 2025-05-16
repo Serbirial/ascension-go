@@ -229,8 +229,6 @@ func HandleWebSocket(ws *websocket.Conn) {
 			log.Println("[WS] Streamer DONE, sending back DONE and closing Streamer connection")
 
 			_ = websocket.Message.Send(ws, []byte("DONE")) // Send DONE so the bot knows everything is OK and DONE
-			time.Sleep(25 * time.Millisecond)              // Give the bot time to process that
-			break                                          // Break from loop and close connection if not already closed
 
 		} else {
 			var msg models.Message
