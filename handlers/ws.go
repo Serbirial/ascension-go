@@ -198,19 +198,6 @@ func HandleWebSocket(ws *websocket.Conn) {
 	var identifier string = ""
 	var isDone int32 = 0 // 1 = true, 0 = false
 
-	// Persistent signal listener
-	go func() {
-		for {
-			select {
-			case signal, ok := <-IsDone[identifier]:
-				if ok && signal {
-					log.Println("[WS] Streamer sent done signal")
-					atomic.StoreInt32(&isDone, 1)
-				}
-			}
-		}
-	}()
-
 	for {
 		var jsonDataRecv []byte
 		if err := websocket.Message.Receive(ws, &jsonDataRecv); err != nil {
@@ -256,7 +243,18 @@ func HandleWebSocket(ws *websocket.Conn) {
 				// Set client's name if first message
 				if Clients[identifier].Name == "" && msg.From != "" {
 					log.Println("[WS] Client sent identifier: ", msg.From)
-
+					// Persistent signal listener
+					go func() {
+						for {
+							select {
+							case signal, ok := <-IsDone[identifier]:
+								if ok && signal {
+									log.Println("[WS] Streamer sent done signal")
+									atomic.StoreInt32(&isDone, 1)
+								}
+							}
+						}
+					}()
 					Clients[identifier].Name = msg.From
 				}
 			}
