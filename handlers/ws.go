@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -26,19 +25,33 @@ var (
 )
 
 func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+		log.Println("[WS-BYTE-RECV] Receiver exiting")
+	}()
+
 	for {
 		select {
 		case <-stop:
 			log.Println("[WS-BYTE-RECV] Stop signal received")
 			return
-		case <-time.After(15 * time.Millisecond): // the timing the WS server uses to send data
+		case <-time.After(15 * time.Millisecond):
 			var data []byte
 			err := websocket.Message.Receive(ws, &data)
 			if err != nil {
-				fmt.Println("[WS-BYTE-RECV]", "Receive error:", err)
+				// Connection is likely closed
+				log.Println("[WS-BYTE-RECV] Receive error:", err)
 				return
 			}
-			output <- data
+			// Send to output channel only if it's safe
+			select {
+			case output <- data:
+			case <-stop:
+				log.Println("[WS-BYTE-RECV] Stop signal while sending to output")
+				return
+			}
 		}
 	}
 }
