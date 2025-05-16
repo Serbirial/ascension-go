@@ -506,6 +506,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				}
 			case seekNum, ok := <-seek:
 				if ok {
+					mu.Lock() // Lock when seeking to prevent race condition
 					doCloseChannel = false
 					sendPaused = true
 					wsStop <- true               // Stop receiving audio from WS server until done
@@ -539,6 +540,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					// Un-pause the send and dont skip sending the close channel signal
 					sendPaused = false
 					doCloseChannel = true
+					mu.Lock()
 
 				}
 			}
@@ -546,6 +548,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	}()
 
 	for {
+
 		select {
 		case <-closeChannel:
 			log.Println("[Music] Close signal recognized")
@@ -575,10 +578,12 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
 			}
+			mu.Lock() // Lock when sending to prevent race-condition
+
 			if sendPaused == false { // Dont send when paused
 				send <- data
 			}
-
+			mu.Unlock()
 		}
 	}
 }
