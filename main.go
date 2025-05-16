@@ -56,6 +56,10 @@ func parseFlags() CommandLineConfig {
 	log.Println("[CLI] Bot Token File: " + cfg.BotTokenFilePath)
 	log.Println("[CLI] Bot Prefix: " + cfg.BotPrefix)
 	log.Println("[CLI] Using DCA: " + strconv.FormatBool(cfg.UseDCA))
+	log.Println("[CLI] WS Only: " + strconv.FormatBool(cfg.WSOnly))
+	log.Println("[CLI] Remote WS: " + strconv.FormatBool(cfg.RemoteWS))
+	log.Println("[CLI] Remote WS URL: " + cfg.RemoteWSURL)
+	log.Println("[CLI] Remote WS UROriginL: " + cfg.RemoteWSOrigin)
 
 	return cfg
 }
