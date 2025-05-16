@@ -243,7 +243,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 				// Set client's name if first message
 				if Clients[identifier].Name == "" && msg.From != "" {
 					log.Println("[WS] Client sent identifier: ", msg.From)
-					// Persistent signal listener
+					// Spawn the peristent signal listener once a main stream connection has been established
 					go func() {
 						for {
 							select {
