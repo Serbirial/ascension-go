@@ -495,7 +495,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 
 	defer close(closeChannel)
 
-	wsBuffer := make(chan []byte, 120)                                    // 100 frames can be buffered from WS
+	wsBuffer := make(chan []byte, 200)                                    // 200 frames can be buffered from WS
 	defer close(wsBuffer)                                                 // Close buffer
 	wsStop := make(chan bool, 1)                                          // Signal for quitting the WS receiver
 	defer close(wsStop)                                                   // Close WS stop
