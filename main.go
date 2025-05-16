@@ -27,7 +27,15 @@ type CommandLineConfig struct {
 	BotPrefix        string
 
 	UseDCA bool
+	WSOnly bool
+
+	RemoteWS       bool
+	RemoteWSURL    string
+	RemoteWSOrigin string
 }
+
+var wsURL string = "ws://localhost:8182/ws"
+var wsOrigin string = "http://localhost/"
 
 func parseFlags() CommandLineConfig {
 	var cfg CommandLineConfig
@@ -35,7 +43,12 @@ func parseFlags() CommandLineConfig {
 	// Bind command-line flags to struct fields
 	flag.StringVar(&cfg.BotTokenFilePath, "token", "token.txt", "Path to txt file containing the token. Defaults to `token.txt`.")
 	flag.StringVar(&cfg.BotPrefix, "prefix", "a!", "The prefix the bot uses for commands. Defaults to `a!`.")
-	flag.BoolVar(&cfg.UseDCA, "useDCA", false, "Tells the bot to use DCA audio only (WILL BYPASS USING EXTERNAL SERVER)")
+	flag.BoolVar(&cfg.UseDCA, "useDCA", false, "Tells the bot to use DCA audio only (ALREADY DEFAULT! NOT CHANGABLE YET!)")
+	flag.BoolVar(&cfg.WSOnly, "ws-only", false, "Tells the program only launch the WS server")
+
+	flag.BoolVar(&cfg.RemoteWS, "remote-ws", false, "Tells the bot to connect to another instances internal WS instead of launching its own")
+	flag.StringVar(&cfg.RemoteWSURL, "ws-url", wsURL, "The URL the bot uses for connecting to remote WS. Defaults to `ws://localhost:8182/ws`.")
+	flag.StringVar(&cfg.RemoteWSOrigin, "ws-origin", wsOrigin, "The Origin the bot uses for connecting to remote WS. Defaults to `http://localhost/`.")
 
 	// Parse the flags
 	log.Println("[CLI] Parsing arguments.")
@@ -48,8 +61,6 @@ func parseFlags() CommandLineConfig {
 }
 
 var config = parseFlags()
-var wsURL string = "ws://localhost:8182/ws"
-var wsOrigin string = "http://localhost/"
 
 func startProfiler() {
 	log.Println("[PROFILER] Starting pprof server at :6060")
@@ -114,8 +125,12 @@ func startBot() {
 
 func main() {
 	go startProfiler()
-	go startWS()
-	go startBot()
+	if !config.RemoteWS { // Dont launch WS if connecting to remote WS server
+		go startWS()
+	}
+	if !config.WSOnly {
+		go startBot()
+	}
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	log.Println("[MAIN] Waiting for exit signal.")
