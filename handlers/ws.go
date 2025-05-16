@@ -31,7 +31,7 @@ func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 		case <-stop:
 			log.Println("[WS-BYTE-RECV] Stop signal received")
 			return
-		default:
+		case <-time.After(15 * time.Millisecond): // the timing the WS server uses to send data
 			var data []byte
 			err := websocket.Message.Receive(ws, &data)
 			if err != nil {
