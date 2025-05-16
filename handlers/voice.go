@@ -479,6 +479,9 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 		SendDCA(v, send)
 		if doCloseChannel {
 			closeChannel <- true
+			return
+		} else {
+			return
 		}
 	}()
 	defer close(closeChannel)
@@ -532,6 +535,9 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 						SendDCA(v, send)
 						if doCloseChannel {
 							closeChannel <- true
+							return
+						} else {
+							return
 						}
 					}()
 					// Start receiving new frames from the server again
