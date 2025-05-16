@@ -204,6 +204,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 			select {
 			case signal, ok := <-IsDone[identifier]:
 				if ok && signal {
+					log.Println("[WS] Streamer sent done signal")
 					atomic.StoreInt32(&isDone, 1)
 				}
 			}
