@@ -196,6 +196,7 @@ func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop
 
 func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool, seek <-chan int) {
 	log.Println("[Music] Cleanup process started")
+	delete(ctx.Client.Websockets, ctx.GuildID)
 	// Stop speaking
 	err := checks.BotInVoice(ctx)
 	if err != nil {
@@ -440,7 +441,10 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 
 // TODO Play audio from remote server through WS
 func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, stop <-chan bool, skip <-chan bool, seek <-chan int) {
-
+	ws, exists := ctx.Client.Websockets[ctx.GuildID]
+	if !exists { // Make streaming connection
+		ctx.Client.ConnectToWS(ctx.Client.WsUrl, ctx.Client.WsOrigin, ctx.GuildID)
+	}
 	// Send "playing" message to the channel
 	ctx.Send("Playing: " + songInfo.Title + " - " + songInfo.Uploader)
 	// Set status
@@ -495,12 +499,12 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 
 	defer close(closeChannel)
 
-	wsBuffer := make(chan []byte, 200)                                    // 200 frames can be buffered from WS
-	defer close(wsBuffer)                                                 // Close buffer
-	wsStop := make(chan bool, 1)                                          // Signal for quitting the WS receiver
-	defer close(wsStop)                                                   // Close WS stop
-	defer func() { wsStop <- true }()                                     // Stop the WS receiver once done
-	go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop) // Start receiving PCM data from WS
+	wsBuffer := make(chan []byte, 200)    // 200 frames can be buffered from WS
+	defer close(wsBuffer)                 // Close buffer
+	wsStop := make(chan bool, 1)          // Signal for quitting the WS receiver
+	defer close(wsStop)                   // Close WS stop
+	defer func() { wsStop <- true }()     // Stop the WS receiver once done
+	go RecvByteData(ws, wsBuffer, wsStop) // Start receiving PCM data from WS
 
 	// Persistent signal listener
 	go func() {
