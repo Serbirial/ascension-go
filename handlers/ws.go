@@ -226,7 +226,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 		if msgStr == "DONE" { // Client sent DONE
 			log.Println("[WS] Client sent DONE, ensuring Streamer has sent done")
 			<-IsDone[identifier] // Block until WS done
-			log.Println("[WS] Streamer DONE, sending back DONE and closing Streamer connection")
+			log.Println("[WS] Streamer DONE, sending back DONE")
 
 			_ = websocket.Message.Send(ws, []byte("DONE")) // Send DONE so the bot knows everything is OK and DONE
 
