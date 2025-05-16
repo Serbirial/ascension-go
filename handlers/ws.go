@@ -75,6 +75,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 		log.Println("[WS] Frame index is empty, aborting playback")
 		return
 	}
+	file.Seek(0, io.SeekStart) // Reset position to start after indexing
 
 	for {
 		select {
@@ -83,11 +84,21 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			return
 
 		case seconds := <-seek:
-			smu.Lock()
-			log.Println("[WS] Seeking")
+			// Drain seek channel if multiple requests came in quickly
+			drain := true
+			for drain {
+				select {
+				case s := <-seek:
+					seconds = s
+				default:
+					drain = false
+				}
+			}
 
+			smu.Lock()
 			frameDelta := int(seconds * frameRateDCA)
 			targetFrame := currentFrame + frameDelta
+
 			if targetFrame < 0 {
 				targetFrame = 0
 			}
@@ -95,13 +106,16 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 				targetFrame = len(frameIndex) - 1
 			}
 
-			_, err := file.Seek(frameIndex[targetFrame], io.SeekStart)
+			// Always seek to known frame offset
+			seekPos := frameIndex[targetFrame]
+			pos, err := file.Seek(seekPos, io.SeekStart)
 			if err != nil {
 				log.Println("[WS] Seek error:", err)
 			} else {
-				log.Printf("[WS] Seeked to frame %d (byte offset %d)", targetFrame, frameIndex[targetFrame])
 				currentFrame = targetFrame
+				log.Printf("[WS] Seeked to frame %d (byte offset %d, actual file pos %d)", targetFrame, seekPos, pos)
 			}
+
 			smu.Unlock()
 			time.Sleep(2 * time.Second) // Wait 2s for the bot to drain buffer and do everything needed before sending more data
 
@@ -125,7 +139,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			}
 			frame := buf[:opuslen]
 
-			err = binary.Read(file, binary.LittleEndian, &frame)
+			_, err = io.ReadFull(file, frame)
 			if err != nil {
 				log.Println("[WS] Error reading frame data:", err)
 				smu.Unlock()

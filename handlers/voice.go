@@ -141,7 +141,7 @@ func recoverBotLeftChannel(ctx *models.Context) *discordgo.VoiceConnection {
 // Helper: build frame index offsets
 func buildFrameIndex(file *os.File) ([]int64, error) {
 	var offsets []int64
-	var frameLen int16
+	var frameLen uint16
 
 	_, err := file.Seek(0, io.SeekStart)
 	if err != nil {
