@@ -263,10 +263,11 @@ func HandleWebSocket(ws *websocket.Conn) {
 			seeksMu.Lock()
 			if seek, ok := Seeks[identifier]; ok {
 				seek <- msg.Seek
+				log.Println("[WS] Seek received from " + msg.From + " sent to channel")
+				seeksMu.Unlock()
+
 			}
 			seeksMu.Unlock()
-			log.Println("[WS] Seek received from " + msg.From + " sent to channel")
-
 		}
 
 	}
