@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -25,25 +26,6 @@ var (
 	seeksMu   sync.Mutex
 )
 
-// Drains the websocket buffer when seeking
-func DrainWebSocketBuffer(conn *websocket.Conn, timeout time.Duration) {
-	// Set a read deadline to avoid blocking forever
-	conn.SetDeadline(time.Now().Add(timeout)) // affects both read/write
-
-	for {
-		var msg []byte
-		err := websocket.Message.Receive(conn, &msg)
-		if err != nil {
-			// Expected when the timeout hits or conn closes
-			log.Println("[Drain] Done draining or error:", err)
-			break
-		}
-		// Drop the message, do nothing with it
-	}
-	// Reset the deadline
-	conn.SetDeadline(time.Time{}) // Resets both read and write deadlines (disables timeout)
-}
-
 func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 	for {
 		select {
@@ -54,7 +36,7 @@ func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 			var data []byte
 			err := websocket.Message.Receive(ws, &data)
 			if err != nil {
-				OnError("[WS-BYTE-RECV]", "Receive error:", err)
+				fmt.Println("[WS-BYTE-RECV]", "Receive error:", err)
 				return
 			}
 			output <- data

@@ -515,8 +515,6 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					}
 					// Send the seek signal to the WS server
 					ctx.Client.SendSeekToWS(seekNum, ctx.GuildID)
-					// Drain the websockets buffer itself
-					DrainWebSocketBuffer(ctx.Client.Websockets[ctx.GuildID], 10*time.Millisecond) // Set timeout to 10ms because the WS server sends every 5ms
 					// Start receiving new frames from the server again
 					go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop)
 
