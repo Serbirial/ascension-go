@@ -471,7 +471,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 		}
 	}()
 
-	send := make(chan []byte, 40) // 20 frames can be buffered for sending
+	send := make(chan []byte, 10) // 10 frames can be buffered for sending
 	var sendPaused int32 = 0      // 1 = true, 0 = false
 	var doCloseChannel int32 = 1  // 1 = true, 0 = false
 

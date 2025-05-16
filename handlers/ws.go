@@ -45,7 +45,7 @@ func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 }
 
 func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, seek <-chan int, startFrame int) {
-	ticker := time.NewTicker(10 * time.Millisecond)
+	ticker := time.NewTicker(5 * time.Millisecond)
 	defer ticker.Stop()
 	log.Println("[WS] Streaming started")
 
