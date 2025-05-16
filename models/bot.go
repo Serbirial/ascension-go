@@ -249,6 +249,11 @@ func (bot *LanaBot) SendDONEToWS(identifier string) {
 		panic("CANT CONNECT TO WS! CANT SEND DONE!")
 	}
 }
+func (bot *LanaBot) CloseWebsocket(identifier string) {
+	ws := bot.Websockets[identifier]
+	ws.Close()
+
+}
 
 func (bot *LanaBot) AddToQueue(guildID string, song *SongInfo) {
 	bot.SongQueue[guildID] = append(bot.SongQueue[guildID], song)
