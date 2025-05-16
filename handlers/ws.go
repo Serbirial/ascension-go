@@ -43,29 +43,21 @@ func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 		}
 	}
 }
+
 func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, seek <-chan int) {
 	log.Println("[WS] Streaming started")
+
 	file, err := os.Open(song.FilePath)
 	if err != nil {
-		log.Println("Error opening dca file :", err)
+		log.Println("Error opening dca file:", err)
 		return
 	}
 	defer file.Close()
 
-	// Constants and state
 	const frameDuration = 20 * time.Millisecond
 	const frameRateDCA = int(time.Second / frameDuration) // 50 fps
 
-	var (
-		opuslen      int16
-		currentFrame int
-		smu          sync.Mutex
-		frameBufPool = sync.Pool{
-			New: func() any { return make([]byte, 2048) }, // max expected opus frame
-		}
-	)
-
-	// Build frame index
+	// Build frame index once at start
 	frameIndex, err := buildFrameIndex(file)
 	if err != nil {
 		log.Println("[WS] Error building frame index:", err)
@@ -75,7 +67,39 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 		log.Println("[WS] Frame index is empty, aborting playback")
 		return
 	}
-	file.Seek(0, io.SeekStart) // Reset position to start after indexing
+
+	// Buffer pool for Opus frames
+	frameBufPool := sync.Pool{
+		New: func() any { return make([]byte, 2048) },
+	}
+
+	// Playback state variables
+	var currentFrame int = 0
+
+	// Helper to seek to a frame in file & update currentFrame
+	seekToFrame := func(targetFrame int) error {
+		if targetFrame < 0 {
+			targetFrame = 0
+		}
+		if targetFrame >= len(frameIndex) {
+			targetFrame = len(frameIndex) - 1
+		}
+
+		seekPos := frameIndex[targetFrame]
+		pos, err := file.Seek(seekPos, io.SeekStart)
+		if err != nil {
+			return err
+		}
+		currentFrame = targetFrame
+		log.Printf("[WS] Seeked to frame %d (byte offset %d, actual file pos %d)", targetFrame, seekPos, pos)
+		return nil
+	}
+
+	// Start playback from beginning
+	if err := seekToFrame(0); err != nil {
+		log.Println("[WS] Initial seek error:", err)
+		return
+	}
 
 	for {
 		select {
@@ -84,78 +108,64 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			return
 
 		case seconds := <-seek:
-			// Drain seek channel if multiple requests came in quickly
-			drain := true
-			for drain {
+			// Drain any additional seek requests quickly to jump to last requested position
+			for {
 				select {
 				case s := <-seek:
 					seconds = s
 				default:
-					drain = false
+					goto doneDrain
 				}
 			}
+		doneDrain:
 
-			smu.Lock()
 			frameDelta := int(seconds * frameRateDCA)
 			targetFrame := currentFrame + frameDelta
 
-			if targetFrame < 0 {
-				targetFrame = 0
-			}
-			if targetFrame >= len(frameIndex) {
-				targetFrame = len(frameIndex) - 1
-			}
-
-			// Always seek to known frame offset
-			seekPos := frameIndex[targetFrame]
-			pos, err := file.Seek(seekPos, io.SeekStart)
-			if err != nil {
+			if err := seekToFrame(targetFrame); err != nil {
 				log.Println("[WS] Seek error:", err)
-			} else {
-				currentFrame = targetFrame
-				log.Printf("[WS] Seeked to frame %d (byte offset %d, actual file pos %d)", targetFrame, seekPos, pos)
 			}
-
-			smu.Unlock()
-			time.Sleep(2 * time.Second) // Wait 2s for the bot to drain buffer and do everything needed before sending more data
 
 		case <-time.After(5 * time.Millisecond):
-			smu.Lock()
-			err := binary.Read(file, binary.LittleEndian, &opuslen)
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				smu.Unlock()
-				_ = websocket.Message.Send(ws, []byte("DONE")) // send DONE to client
-				return
-			}
-			if err != nil {
-				log.Println("[WS] Error reading frame length:", err)
-				smu.Unlock()
+			if currentFrame >= len(frameIndex) {
+				log.Println("[WS] Reached end of stream")
+				_ = websocket.Message.Send(ws, []byte("DONE"))
 				return
 			}
 
+			// Read Opus frame length
+			var opuslen int16
+			if err := binary.Read(file, binary.LittleEndian, &opuslen); err != nil {
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
+					log.Println("[WS] EOF reached")
+					_ = websocket.Message.Send(ws, []byte("DONE"))
+					return
+				}
+				log.Println("[WS] Error reading frame length:", err)
+				return
+			}
+
+			// Get buffer from pool or allocate if too small
 			buf := frameBufPool.Get().([]byte)
 			if int(opuslen) > cap(buf) {
 				buf = make([]byte, opuslen)
 			}
 			frame := buf[:opuslen]
 
-			_, err = io.ReadFull(file, frame)
-			if err != nil {
+			// Read Opus frame data
+			if _, err := io.ReadFull(file, frame); err != nil {
 				log.Println("[WS] Error reading frame data:", err)
-				smu.Unlock()
 				return
 			}
 
-			err = websocket.Message.Send(ws, frame)
-			if err != nil {
-				log.Println("[WS] Error sending data:", err)
-				smu.Unlock()
+			// Send frame to client
+			if err := websocket.Message.Send(ws, frame); err != nil {
+				log.Println("[WS] Error sending frame:", err)
 				return
 			}
 
 			currentFrame++
 			frameBufPool.Put(buf)
-			smu.Unlock()
 		}
 	}
 }
