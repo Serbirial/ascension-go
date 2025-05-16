@@ -46,10 +46,13 @@ Ascension is a brand new discord music bot, taking focus on low resource utiliza
 
 ## Features ##
 
+:heavy_check_mark: Super high audio quality;
 :heavy_check_mark: 100% Open source;\
 :heavy_check_mark: Made in Go;\
 :heavy_check_mark: Made with optimization as a priority;\
 :heavy_check_mark: Under active development;
+
+:heavy_check_mark: Can seperate Bot and Music server;
 
 ## Stack ##
 
@@ -74,14 +77,18 @@ $ cd ascension-go
 # Build the project
 $ go build
 
-# Run the binary
-$ ./gobot
+# Run the binaries help command!
+$ ./ascension -h
 
 # Make sure to configure the bot!
 ```
 
 
 If you need any help, or have questions, or just want to join and chat, feel free to join my community [discord server](https://discord.gg/Pdytkk8sGy).
+## Bot features ##
+The bot can play in as many servers as the hardware allows, it has full concurrency!\
+You can even connect as many bots as you want to a single Music server! (Look at help command)\
+Can use Discord Compressed Audio to ensure lowest possible bandwidth!
 
 ## License ##
 
