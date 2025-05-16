@@ -103,6 +103,8 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 		return
 	}
 
+	var pendingSeek *int
+
 	for {
 		select {
 		case <-stop:
@@ -110,26 +112,28 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			return
 
 		case seconds := <-seek:
-			// Drain any additional seek requests quickly to jump to last requested position
+			// Drain further seek requests to get the latest one
+		drain:
 			for {
 				select {
 				case s := <-seek:
 					seconds = s
 				default:
-					goto doneDrain
+					break drain
 				}
 			}
-		doneDrain:
-
-			// Interpret seconds as absolute time (seconds)
-			targetFrame := int(seconds * frameRateDCA)
-
-			log.Printf("[WS] Seeking: currentFrame=%d, requestedSeconds=%d, targetFrame=%d", currentFrame, seconds, targetFrame)
-
-			if err := seekToFrame(targetFrame); err != nil {
-				log.Println("[WS] Seek error:", err)
-			}
+			pendingSeek = &seconds
 		case <-ticker.C:
+			// If there's a pending seek, perform it now
+			if pendingSeek != nil {
+				targetFrame := *pendingSeek * frameRateDCA
+				log.Printf("[WS] Seeking: currentFrame=%d, requestedSeconds=%d, targetFrame=%d", currentFrame, *pendingSeek, targetFrame)
+				if err := seekToFrame(targetFrame); err != nil {
+					log.Println("[WS] Seek error:", err)
+				}
+				pendingSeek = nil
+				continue
+			}
 			if currentFrame >= len(frameIndex) {
 				log.Println("[WS] Reached end of stream")
 				_ = websocket.Message.Send(ws, []byte("DONE"))
