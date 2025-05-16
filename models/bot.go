@@ -210,10 +210,10 @@ func (bot *LanaBot) SendStopToWS(identifier string) {
 	err = websocket.Message.Send(ws, jsonData)
 	if err != nil {
 		log.Fatal("Error while establishing connection:", err)
-		panic("CANT CONNECT TO WS! CANT SEND URL!")
+		panic("CANT CONNECT TO WS! CANT SEND STOP!")
 	}
-
 }
+
 func (bot *LanaBot) SendSeekToWS(seek int, identifier string) {
 	ws := bot.CreateTempWS(bot.WsUrl, bot.WsOrigin, identifier) // Create a new WS connection for communicating with the server
 	defer ws.Close()
@@ -238,7 +238,23 @@ func (bot *LanaBot) SendSeekToWS(seek int, identifier string) {
 		log.Fatal("Error while establishing connection:", err)
 		panic("CANT CONNECT TO WS! CANT SEND SEEK!")
 	}
+}
 
+func (bot *LanaBot) SendDONEToWS(identifier string) {
+	ws := bot.Websockets[identifier]
+	defer ws.Close()
+	msg := DoneMessage{
+		Done: true,
+	}
+	jsonData, err := json.Marshal(msg)
+	if err != nil {
+		log.Fatal("JSON Marshal error:", err)
+	}
+	err = websocket.Message.Send(ws, jsonData)
+	if err != nil {
+		log.Fatal("Error while establishing connection:", err)
+		panic("CANT CONNECT TO WS! CANT SEND DONE!")
+	}
 }
 
 func (bot *LanaBot) AddToQueue(guildID string, song *SongInfo) {

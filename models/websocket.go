@@ -18,6 +18,10 @@ type Message struct {
 	Identifier string `json:"identifier"`
 }
 
+type DoneMessage struct {
+	Done bool `json:"done"`
+}
+
 // Struct to hold a connected client
 type Client struct {
 	Name string

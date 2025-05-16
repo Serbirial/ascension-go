@@ -104,6 +104,8 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 	}
 
 	var pendingSeek *int
+	doneFlag := false
+	var pendingDone *bool = &doneFlag
 
 	for {
 		select {
@@ -122,8 +124,13 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 					break drain
 				}
 			}
+			// Unset pending done to resume playing
+			*pendingDone = false
 			pendingSeek = &seconds
 		case <-ticker.C:
+			if *pendingDone {
+				continue // skip over the ticker
+			}
 			// If there's a pending seek, perform it now
 			if pendingSeek != nil {
 				targetFrame := *pendingSeek * frameRateDCA
@@ -138,7 +145,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			}
 			if currentFrame >= len(frameIndex) {
 				log.Println("[WS] Reached end of stream")
-				_ = websocket.Message.Send(ws, []byte("DONE"))
+				_ = websocket.Message.Send(ws, []byte("DONE")) // Send DONE because they seeked to the end, songs over
 				return
 			}
 
@@ -147,8 +154,29 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			if err := binary.Read(file, binary.LittleEndian, &opuslen); err != nil {
 				if err == io.EOF || err == io.ErrUnexpectedEOF {
 					log.Println("[WS] EOF reached")
-					_ = websocket.Message.Send(ws, []byte("DONE"))
-					return
+					_ = websocket.Message.Send(ws, []byte("DONESTREAM"))
+					log.Println("[WS] Waiting for BOT to send DONE back")
+					*pendingDone = true
+
+					go func() {
+
+						for { // Loop until the client sends DONE message back or pendingDone changes
+							if *pendingDone == false {
+								return
+							}
+							var msg models.DoneMessage
+							// Read JSON message
+							if err := websocket.JSON.Receive(ws, &msg); err != nil {
+								log.Println("[WS] Streaming connection closed unexpectly while waiting for BOT to send DONE back")
+							}
+							if msg.Done {
+								_ = websocket.Message.Send(ws, []byte("DONE"))
+								*pendingDone = false
+								return
+							}
+						}
+					}()
+
 				}
 				log.Println("[WS] Error reading frame length:", err)
 				return

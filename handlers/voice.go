@@ -59,7 +59,7 @@ var OnError = func(prefix string, str string, err error) {
 }
 
 // SendDCA will receive on the provied channel then send that to Discordgo
-func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte) {
+func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte, dcaDone chan bool) {
 	if dca == nil {
 		return
 	}
@@ -75,6 +75,10 @@ func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte) {
 			// fmt.Println(fmt.Sprintf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend), nil)
 			// Sending errors here might not be suited
 			return
+		}
+
+		if string(dcaData) == "DONESTREAM" {
+			dcaDone <- true
 		}
 		// send encoded opus data to the sendOpus channel
 		v.OpusSend <- dcaData
@@ -294,8 +298,10 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	defer close(send)
 
 	closeChannel := make(chan bool, 1)
+	dcaDoneChannel := make(chan bool, 1)
+
 	go func() {
-		SendDCA(v, send)
+		SendDCA(v, send, dcaDoneChannel)
 		// Code is not needed, once `send` is closed it will recognize that and close itself.
 		//closeChannel <- true
 	}()
@@ -478,9 +484,10 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	// setting the buffer too high for `send` MIGHT cause audio overlap when playing the next song in queue
 
 	closeChannel := make(chan bool, 1)
+	dcaDoneChannel := make(chan bool, 1)
 
 	go func() {
-		SendDCA(v, send)
+		SendDCA(v, send, dcaDoneChannel)
 		if atomic.LoadInt32(&doCloseChannel) == 1 {
 			closeChannel <- true
 		}
@@ -534,7 +541,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					ctx.Client.SendSeekToWS(seekNum, ctx.GuildID)
 					// Start sending audio to discord again
 					go func() {
-						SendDCA(v, send)
+						SendDCA(v, send, dcaDoneChannel)
 						if atomic.LoadInt32(&doCloseChannel) == 1 {
 							closeChannel <- true
 						}
@@ -557,6 +564,11 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	for {
 
 		select {
+		case <-dcaDoneChannel:
+			log.Println("[Music] WS is done streaming, sending confirmation back")
+			ctx.Client.SendDONEToWS(ctx.GuildID)
+			log.Println("[Music] Confirmation sent")
+
 		case <-closeChannel:
 			log.Println("[Music] Close signal recognized")
 			// Stop WS/Stream
