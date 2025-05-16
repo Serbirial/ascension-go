@@ -115,8 +115,11 @@ func startBot() {
 	err = session.Open()
 	error.ErrorCheckPanic(err)
 
-	for _, v := range session.VoiceConnections {
-		v.Disconnect()
+	for _, guild := range session.State.Guilds {
+		err := session.ChannelVoiceJoinManual(guild.ID, "", false, false) // empty channel ID = disconnect
+		if err != nil {
+			log.Printf("Error disconnecting from voice in guild %s: %v", guild.ID, err)
+		}
 	}
 
 	sc := make(chan os.Signal, 1)
