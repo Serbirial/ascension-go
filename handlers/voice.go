@@ -509,6 +509,8 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 						select {
 						case <-wsBuffer:
 							// Discard frame
+						case <-send:
+							// Discard frame
 						default:
 							break drain
 						}

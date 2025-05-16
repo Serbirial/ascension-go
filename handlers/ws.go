@@ -44,7 +44,7 @@ func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 	}
 }
 
-func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, seek <-chan int) {
+func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, seek <-chan int, startFrame int) {
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 	log.Println("[WS] Streaming started")
@@ -97,8 +97,8 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 		return nil
 	}
 
-	// Start playback from beginning
-	if err := seekToFrame(0); err != nil {
+	// Start playback from startFrame
+	if err := seekToFrame(startFrame); err != nil {
 		log.Println("[WS] Initial seek error:", err)
 		return
 	}
@@ -132,7 +132,9 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 					log.Println("[WS] Seek error:", err)
 				}
 				pendingSeek = nil
-				continue
+				log.Printf("[WS] Restarting stream at targetFrame")
+				sendByteData(ws, song, stop, seek, targetFrame)
+				return // Exit
 			}
 			if currentFrame >= len(frameIndex) {
 				log.Println("[WS] Reached end of stream")
@@ -282,7 +284,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 				stopChannel = make(chan bool, 1)
 				Loops[identifier] = stopChannel
 			}
-			go sendByteData(Clients[identifier].Conn, msgData, stopChannel, seekChannel)
+			go sendByteData(Clients[identifier].Conn, msgData, stopChannel, seekChannel, 0)
 			Loops[identifier] = stopChannel
 			Seeks[identifier] = seekChannel
 
