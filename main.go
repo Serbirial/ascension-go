@@ -79,6 +79,9 @@ func startWS() {
 
 	log.Println("[WS] Server running on :8182")
 	log.Fatal(http.ListenAndServe("localhost:8182", nil))
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	<-sc
 }
 
 func startBot() {
