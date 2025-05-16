@@ -220,6 +220,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 		time.Sleep(2 * time.Second)
 		// Play the next song
 		playNextSongInQueue(v, ctx, stop, skip, seek)
+		return
 	} else if len(ctx.Client.SongQueue[ctx.GuildID]) == 0 { // Queue was empty
 		log.Println("[Music] Queue is empty, waiting for activity")
 		// Wait 60s to see if activity happens
