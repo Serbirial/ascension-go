@@ -510,6 +510,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				}
 			case seekNum, ok := <-seek:
 				if ok {
+					mu.Lock() // Lock while seeking
 					atomic.StoreInt32(&doCloseChannel, 0)
 					atomic.StoreInt32(&sendPaused, 1)
 
@@ -543,9 +544,10 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 
 					go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop)
 					// Atomic
-					time.Sleep(50 * time.Millisecond) // wait 50ms for goroutines
+					time.Sleep(1 * time.Second) // wait 1s for goroutines
 					atomic.StoreInt32(&doCloseChannel, 1)
 					atomic.StoreInt32(&sendPaused, 0)
+					mu.Unlock()
 
 				}
 			}
@@ -583,10 +585,11 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
 			}
-
+			mu.Lock()
 			if atomic.LoadInt32(&sendPaused) == 0 { // Dont send when paused
 				send <- data
 			}
+			mu.Unlock()
 		}
 	}
 }
