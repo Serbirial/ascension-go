@@ -575,6 +575,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 			startCleanupProcess(v, ctx, stop, skip, seek)
 			return
 		case <-closeChannel:
+
 			log.Println("[Music] Close signal recognized")
 			// Stop WS/Stream
 			close(send)

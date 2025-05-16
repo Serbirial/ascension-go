@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"ascension/models"
@@ -20,10 +21,9 @@ var (
 	Clients = make(map[string]*models.Client)
 	Loops   = make(map[string]chan bool)
 	Seeks   = make(map[string]chan int)
+	IsDone  = make(map[string]chan bool)
 
 	clientsMu sync.Mutex
-	loopsMu   sync.Mutex
-	seeksMu   sync.Mutex
 )
 
 func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
@@ -44,7 +44,7 @@ func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 	}
 }
 
-func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, seek <-chan int, startFrame int) {
+func sendByteData(identifier string, ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, seek <-chan int, startFrame int, done <-chan bool) {
 	ticker := time.NewTicker(18 * time.Millisecond) // 2ms under discords needed send timing to allow for buffering 2 frames at a time
 	defer ticker.Stop()
 	log.Println("[WS] Streaming started")
@@ -129,7 +129,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 			pendingSeek = &seconds
 		case <-ticker.C:
 			if *pendingDone {
-				continue // skip over the ticker
+				continue // keep looping incase seek gets sent
 			}
 			// If there's a pending seek, perform it now
 			if pendingSeek != nil {
@@ -140,7 +140,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 				}
 				pendingSeek = nil
 				log.Printf("[WS] Restarting stream at targetFrame")
-				sendByteData(ws, song, stop, seek, targetFrame)
+				sendByteData(identifier, ws, song, stop, seek, targetFrame, done)
 				return // Exit
 			}
 			if currentFrame >= len(frameIndex) {
@@ -157,25 +157,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 					_ = websocket.Message.Send(ws, []byte("DONESTREAM"))
 					log.Println("[WS] Waiting for BOT to send DONE back")
 					*pendingDone = true
-
-					go func() {
-
-						for { // Loop until the client sends DONE message back or pendingDone changes
-							if *pendingDone == false {
-								return
-							}
-							var msg models.DoneMessage
-							// Read JSON message
-							if err := websocket.JSON.Receive(ws, &msg); err != nil {
-								log.Println("[WS] Streaming connection closed unexpectly while waiting for BOT to send DONE back")
-								return
-							}
-							if msg.Done {
-								_ = websocket.Message.Send(ws, []byte("DONE"))
-								return
-							}
-						}
-					}()
+					IsDone[identifier] <- true // Send done to main handler
 
 				} else {
 					log.Println("[WS] Error reading frame length:", err)
@@ -216,6 +198,19 @@ func HandleWebSocket(ws *websocket.Conn) {
 	var tempConnection bool = true // Assume temp connection
 	var name string = ""
 	var identifier string = ""
+	var isDone int32 = 0 // 1 = true, 0 = false
+
+	// Persistent signal listener
+	go func() {
+		for {
+			select {
+			case signal, ok := <-IsDone[identifier]:
+				if ok && signal {
+					atomic.StoreInt32(&isDone, 1)
+				}
+			}
+		}
+	}()
 
 	for {
 		var msg models.Message
@@ -235,8 +230,22 @@ func HandleWebSocket(ws *websocket.Conn) {
 		name = msg.From
 		identifier = msg.Identifier
 		if identifier == "" && name == "" { // The bot is sending DONE back
-			time.Sleep(1 * time.Second) // Allow for WS to finish
-			break                       // Connection is going to be closed
+			if atomic.LoadInt32(&isDone) == 1 { // WS server is done playing and waiting for a seek or the bot to send back DONE, the above has to be true
+				var jsonDataRecv []byte
+				if err := websocket.Message.Receive(ws, &jsonDataRecv); err != nil {
+					log.Fatalf("Failed to receive: %v", err)
+					break
+				}
+
+				var msg models.DoneMessage
+				if err := json.Unmarshal(jsonDataRecv, &msg); err != nil {
+					log.Fatalf("Failed to decode JSON: %v", err)
+					break
+				}
+				if msg.Done {
+					log.Println("[WS] Streaming connection DONE")
+				}
+			}
 		}
 
 		// Register new clients after they send identifier (first recv)
@@ -259,12 +268,12 @@ func HandleWebSocket(ws *websocket.Conn) {
 
 		// Process stop
 		if msg.Stop {
-			loopsMu.Lock()
+			clientsMu.Lock()
 			if stop, ok := Loops[identifier]; ok {
 				stop <- true
 				delete(Loops, identifier)
 			}
-			loopsMu.Unlock()
+			clientsMu.Unlock()
 
 		} else if msg.URL != "" && msg.Download == true { // If theres a URL and download is true, only download
 			log.Println("[WS] Download received from " + msg.From)
@@ -304,8 +313,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 			if err != nil {
 				log.Fatal("[WS] Error while sending song info:", err)
 			}
-			loopsMu.Lock()
-			seeksMu.Lock()
+			clientsMu.Lock()
 
 			seekChannel, exists := Seeks[identifier]
 			if !exists {
@@ -318,22 +326,25 @@ func HandleWebSocket(ws *websocket.Conn) {
 				stopChannel = make(chan bool, 1)
 				Loops[identifier] = stopChannel
 			}
-			go sendByteData(Clients[identifier].Conn, msgData, stopChannel, seekChannel, 0)
-			Loops[identifier] = stopChannel
-			Seeks[identifier] = seekChannel
 
-			loopsMu.Unlock()
-			seeksMu.Unlock()
+			doneChannel, exists := IsDone[identifier]
+			if !exists {
+				doneChannel = make(chan bool, 1)
+				IsDone[identifier] = doneChannel
+			}
+			go sendByteData(identifier, Clients[identifier].Conn, msgData, stopChannel, seekChannel, 0, doneChannel)
+
+			clientsMu.Unlock()
 
 		} else if msg.Seek >= 0 {
 			log.Println("[WS] Seek received from " + msg.From)
-			seeksMu.Lock()
+			clientsMu.Lock()
 			if seek, ok := Seeks[identifier]; ok {
 				seek <- msg.Seek
 				log.Println("[WS] Seek received from " + msg.From + " sent to channel")
 
 			}
-			seeksMu.Unlock()
+			clientsMu.Unlock()
 		}
 
 	}
@@ -342,20 +353,16 @@ func HandleWebSocket(ws *websocket.Conn) {
 	if !tempConnection {
 		clientsMu.Lock()
 		delete(Clients, identifier)
-		clientsMu.Unlock()
-		loopsMu.Lock()
 		if stop, ok := Loops[identifier]; ok {
 			stop <- true
 			close(stop)
 			delete(Loops, identifier)
 		}
-		loopsMu.Unlock()
-		seeksMu.Lock()
 		if seek, ok := Seeks[identifier]; ok {
 			close(seek)
 			delete(Seeks, identifier)
 		}
-		seeksMu.Unlock()
+		clientsMu.Unlock()
 	}
 
 }
