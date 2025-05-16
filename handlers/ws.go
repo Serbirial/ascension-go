@@ -45,13 +45,7 @@ func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 				log.Println("[WS-BYTE-RECV] Receive error:", err)
 				return
 			}
-			// Send to output channel only if it's safe
-			select {
-			case output <- data:
-			case <-stop:
-				log.Println("[WS-BYTE-RECV] Stop signal while sending to output")
-				return
-			}
+			output <- data
 		}
 	}
 }
@@ -141,7 +135,12 @@ func sendByteData(identifier string, ws *websocket.Conn, song *models.SongInfo, 
 			pendingSeek = &seconds
 		case <-ticker.C:
 			if *pendingDone {
-				continue // keep looping incase seek gets sent
+				select {
+				case <-stop:
+				case <-time.After(4 * time.Millisecond):
+					continue // keep looping incase seek gets sent
+
+				}
 			}
 			// If there's a pending seek, perform it now
 			if pendingSeek != nil {
