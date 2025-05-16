@@ -222,6 +222,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 
 			}
 		}
+		fmt.Printf("[WS] Recv:", string(jsonDataRecv))
 		if string(jsonDataRecv) == "DONE" { // Client sent DONE
 			if atomic.LoadInt32(&isDone) == 1 { // WS server is also done playing
 				log.Println("[WS] Received DONE, sending back DONE in confirmation")
