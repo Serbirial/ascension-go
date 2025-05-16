@@ -192,8 +192,6 @@ func sendByteData(identifier string, ws *websocket.Conn, song *models.SongInfo, 
 }
 
 func HandleWebSocket(ws *websocket.Conn) {
-	defer ws.Close()
-
 	log.Println("[WS] Connected: ", ws.RemoteAddr())
 	var tempConnection bool = true // Assume temp connection
 	var name string = ""
@@ -370,5 +368,8 @@ func HandleWebSocket(ws *websocket.Conn) {
 		}
 		clientsMu.Unlock()
 	}
+
+	// FIXME closes early during bot sending back DONE
+	defer ws.Close()
 
 }
