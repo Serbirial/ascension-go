@@ -287,6 +287,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 			if err != nil {
 				log.Fatal("[WS] Error while sending song info:", err)
 			}
+			// FIXME make only play- not download- not possible currently unless i write another function in fs
 		} else if msg.URL != "" && msg.Download == false { // If theres a URL but download is false, that means download&play
 			log.Println("[WS] Play received from " + msg.From)
 
