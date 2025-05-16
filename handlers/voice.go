@@ -530,6 +530,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					// Start receiving new frames from the server again
 
 					go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop)
+					sendPaused = false
 
 				}
 			}
@@ -566,7 +567,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
 			}
-			if !sendPaused { // Dont send when paused
+			if sendPaused == true { // Dont send when paused
 				send <- data
 			}
 
