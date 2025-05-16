@@ -78,6 +78,7 @@ func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte) {
 		}
 		// send encoded opus data to the sendOpus channel
 		v.OpusSend <- dcaData
+		time.Sleep(20 * time.Millisecond)
 	}
 }
 
