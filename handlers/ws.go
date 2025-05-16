@@ -235,7 +235,8 @@ func HandleWebSocket(ws *websocket.Conn) {
 		name = msg.From
 		identifier = msg.Identifier
 		if identifier == "" && name == "" { // The bot is sending DONE back
-			break // Connection is going to be closed
+			time.Sleep(1 * time.Second) // Allow for WS to finish
+			break                       // Connection is going to be closed
 		}
 
 		// Register new clients after they send identifier (first recv)
