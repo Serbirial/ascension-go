@@ -477,7 +477,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 		}
 	}()
 
-	send := make(chan []byte, 10) // 10 frames can be buffered for sending
+	send := make(chan []byte, 30) // 30 frames can be buffered for sending
 	var sendPaused int32 = 0      // 1 = true, 0 = false
 	var doCloseChannel int32 = 1  // 1 = true, 0 = false
 
@@ -495,7 +495,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 
 	defer close(closeChannel)
 
-	wsBuffer := make(chan []byte, 100)                                    // 100 frames can be buffered from WS
+	wsBuffer := make(chan []byte, 120)                                    // 100 frames can be buffered from WS
 	defer close(wsBuffer)                                                 // Close buffer
 	wsStop := make(chan bool, 1)                                          // Signal for quitting the WS receiver
 	defer close(wsStop)                                                   // Close WS stop
@@ -523,7 +523,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					atomic.StoreInt32(&sendPaused, 1)
 					close(send)                  // Stop sending audio to Discord
 					wsStop <- true               // Stop receiving audio from WS server until done
-					send = make(chan []byte, 20) // Re-make the buffer
+					send = make(chan []byte, 30) // Re-make the buffer
 					mu.Unlock()                  // Unlock after changing
 					// Drain wsBuffer to discard pre-seek frames
 				drain:
@@ -569,7 +569,6 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 			log.Println("[Music] WS is done streaming, sending confirmation back")
 			ctx.Client.SendDONEToWS(ctx.GuildID)
 			log.Println("[Music] Confirmation sent")
-			close(send)
 			mu.Unlock()
 			// Dont exit, WS will send back DONE and it will be seen below
 		case <-closeChannel:
