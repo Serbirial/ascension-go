@@ -168,6 +168,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 							// Read JSON message
 							if err := websocket.JSON.Receive(ws, &msg); err != nil {
 								log.Println("[WS] Streaming connection closed unexpectly while waiting for BOT to send DONE back")
+								return
 							}
 							if msg.Done {
 								_ = websocket.Message.Send(ws, []byte("DONE"))
