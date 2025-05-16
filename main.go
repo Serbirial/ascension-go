@@ -43,7 +43,7 @@ func parseFlags() CommandLineConfig {
 	// Bind command-line flags to struct fields
 	flag.StringVar(&cfg.BotTokenFilePath, "token", "token.txt", "Path to txt file containing the token. Defaults to `token.txt`.")
 	flag.StringVar(&cfg.BotPrefix, "prefix", "a!", "The prefix the bot uses for commands. Defaults to `a!`.")
-	flag.BoolVar(&cfg.UseDCA, "useDCA", false, "Tells the bot to use DCA audio only (ALREADY DEFAULT! NOT CHANGABLE YET!)")
+	flag.BoolVar(&cfg.UseDCA, "useDCA", false, "Tells the bot to use DCA audio only (Bypasses usage of WS server)")
 	flag.BoolVar(&cfg.WSOnly, "ws-only", false, "Tells the program only launch the WS server")
 
 	flag.BoolVar(&cfg.RemoteWS, "remote-ws", false, "Tells the bot to connect to another instances internal WS instead of launching its own")
