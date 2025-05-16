@@ -45,7 +45,7 @@ func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 }
 
 func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, seek <-chan int) {
-	ticker := time.NewTicker(5 * time.Millisecond)
+	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 	log.Println("[WS] Streaming started")
 
@@ -132,6 +132,7 @@ func sendByteData(ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, s
 					log.Println("[WS] Seek error:", err)
 				}
 				pendingSeek = nil
+				time.Sleep(1 * time.Second)
 				continue
 			}
 			if currentFrame >= len(frameIndex) {
