@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"ascension/models"
@@ -196,7 +195,6 @@ func HandleWebSocket(ws *websocket.Conn) {
 	var tempConnection bool = true // Assume temp connection
 	var name string = ""
 	var identifier string = ""
-	var isDone int32 = 0 // 1 = true, 0 = false
 
 	for {
 		var jsonDataRecv []byte
@@ -212,16 +210,15 @@ func HandleWebSocket(ws *websocket.Conn) {
 		}
 		msgStr := string(jsonDataRecv)
 
-		fmt.Printf("[WS] Parsed message: %q (%v bytes)\n", msgStr, len(msgStr))
 		if msgStr == "DONE" { // Client sent DONE
-			if atomic.LoadInt32(&isDone) == 1 { // WS server is also done playing
-				log.Println("[WS] Received DONE, sending back DONE in confirmation")
+			log.Println("[WS] Client sent DONE, ensuring Streamer has sent done")
+			<-IsDone[identifier] // Block until WS done
+			log.Println("[WS] Streamer DONE, sending back DONE and closing Streamer connection")
 
-				_ = websocket.Message.Send(ws, []byte("DONE")) // Send DONE so the bot knows everything is OK and DONE
-				time.Sleep(25 * time.Millisecond)              // Give the bot time to process that
-				break                                          // Break from loop and close connection if not already closed
+			_ = websocket.Message.Send(ws, []byte("DONE")) // Send DONE so the bot knows everything is OK and DONE
+			time.Sleep(25 * time.Millisecond)              // Give the bot time to process that
+			break                                          // Break from loop and close connection if not already closed
 
-			}
 		} else {
 			var msg models.Message
 			if err := json.Unmarshal(jsonDataRecv, &msg); err != nil {
@@ -243,18 +240,6 @@ func HandleWebSocket(ws *websocket.Conn) {
 				// Set client's name if first message
 				if Clients[identifier].Name == "" && msg.From != "" {
 					log.Println("[WS] Client sent identifier: ", msg.From)
-					// Spawn the peristent signal listener once a main stream connection has been established
-					go func() {
-						for {
-							select {
-							case signal, ok := <-IsDone[identifier]:
-								if ok && signal {
-									log.Println("[WS] Streamer sent done signal")
-									atomic.StoreInt32(&isDone, 1)
-								}
-							}
-						}
-					}()
 					Clients[identifier].Name = msg.From
 				}
 			}
@@ -363,6 +348,6 @@ func HandleWebSocket(ws *websocket.Conn) {
 	}
 
 	// FIXME closes early during bot sending back DONE
-	ws.Close() // should be fixed with manual closing
+	defer ws.Close() // should be fixed with manual closing
 
 }
