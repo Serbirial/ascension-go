@@ -575,7 +575,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
 			}
-			if sendPaused == true { // Dont send when paused
+			if sendPaused == false { // Dont send when paused
 				send <- data
 			}
 
