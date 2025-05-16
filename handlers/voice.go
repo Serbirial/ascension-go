@@ -540,7 +540,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					// Un-pause the send and dont skip sending the close channel signal
 					sendPaused = false
 					doCloseChannel = true
-					mu.Lock()
+					mu.Unlock()
 
 				}
 			}
