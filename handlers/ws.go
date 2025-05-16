@@ -230,115 +230,115 @@ func HandleWebSocket(ws *websocket.Conn) {
 				break
 
 			}
-		}
-
-		var msg models.Message
-		if err := json.Unmarshal(jsonDataRecv, &msg); err != nil {
-			log.Fatalf("Failed to decode JSON: %v", err) // FIXME break from loop
-		}
-
-		// Set the reference and identifier
-		name = msg.From
-		identifier = msg.Identifier
-
-		// Register new clients after they send identifier (first recv)
-		clientsMu.Lock()
-
-		// Client already might exist (ex: is streaming from the server, but opened temporary WS connection)
-		_, exists := Clients[identifier]
-		if !exists { // First time connection from a client means its main WS connection, dont replace that
-			tempConnection = false // First time connection from a client means its main WS connection
-			Clients[identifier] = &models.Client{Conn: ws}
-			// Set client's name if first message
-			if Clients[identifier].Name == "" && msg.From != "" {
-				log.Println("[WS] Client sent identifier: ", msg.From)
-
-				Clients[identifier].Name = msg.From
+		} else {
+			var msg models.Message
+			if err := json.Unmarshal(jsonDataRecv, &msg); err != nil {
+				log.Fatalf("Failed to decode JSON: %v", err) // FIXME break from loop
 			}
-		}
 
-		clientsMu.Unlock()
+			// Set the reference and identifier
+			name = msg.From
+			identifier = msg.Identifier
 
-		// Process stop
-		if msg.Stop {
-			clientsMu.Lock()
-			if stop, ok := Loops[identifier]; ok {
-				stop <- true
-				delete(Loops, identifier)
-			}
-			clientsMu.Unlock()
-
-		} else if msg.URL != "" && msg.Download == true { // If theres a URL and download is true, only download
-			log.Println("[WS] Download received from " + msg.From)
-
-			data, err := fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
-			if err != nil {
-				log.Fatal("[WS] Error while downloading song and info:", err)
-			}
-			msg := &models.SongInfo{
-				FilePath: data.FilePath,
-				Title:    data.Title,
-				Uploader: data.Uploader,
-				ID:       data.ID,
-				Duration: data.Duration,
-			}
-			jsonData, err := json.Marshal(msg)
-			err = websocket.Message.Send(ws, jsonData)
-			if err != nil {
-				log.Fatal("[WS] Error while sending song info:", err)
-			}
-			// FIXME make only play- not download- not possible currently unless i write another function in fs
-		} else if msg.URL != "" && msg.Download == false { // If theres a URL but download is false, that means download&play
-			log.Println("[WS] Play received from " + msg.From)
-
-			data, err := fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
-			if err != nil {
-				log.Fatal("[WS] Error while downloading song and info:", err)
-			}
-			msgData := &models.SongInfo{
-				FilePath: data.FilePath,
-				Title:    data.Title,
-				Uploader: data.Uploader,
-				ID:       data.ID,
-				Duration: data.Duration,
-			}
-			jsonData, err := json.Marshal(msgData)
-			err = websocket.Message.Send(ws, jsonData)
-			if err != nil {
-				log.Fatal("[WS] Error while sending song info:", err)
-			}
+			// Register new clients after they send identifier (first recv)
 			clientsMu.Lock()
 
-			seekChannel, exists := Seeks[identifier]
-			if !exists {
-				seekChannel = make(chan int)
-				Seeks[identifier] = seekChannel
-			}
+			// Client already might exist (ex: is streaming from the server, but opened temporary WS connection)
+			_, exists := Clients[identifier]
+			if !exists { // First time connection from a client means its main WS connection, dont replace that
+				tempConnection = false // First time connection from a client means its main WS connection
+				Clients[identifier] = &models.Client{Conn: ws}
+				// Set client's name if first message
+				if Clients[identifier].Name == "" && msg.From != "" {
+					log.Println("[WS] Client sent identifier: ", msg.From)
 
-			stopChannel, exists := Loops[identifier]
-			if !exists {
-				stopChannel = make(chan bool, 1)
-				Loops[identifier] = stopChannel
+					Clients[identifier].Name = msg.From
+				}
 			}
-
-			doneChannel, exists := IsDone[identifier]
-			if !exists {
-				doneChannel = make(chan bool, 1)
-				IsDone[identifier] = doneChannel
-			}
-			go sendByteData(identifier, Clients[identifier].Conn, msgData, stopChannel, seekChannel, 0, doneChannel)
 
 			clientsMu.Unlock()
 
-		} else if msg.Seek >= 0 {
-			log.Println("[WS] Seek received from " + msg.From)
-			clientsMu.Lock()
-			if seek, ok := Seeks[identifier]; ok {
-				seek <- msg.Seek
-				log.Println("[WS] Seek received from " + msg.From + " sent to channel")
+			// Process stop
+			if msg.Stop {
+				clientsMu.Lock()
+				if stop, ok := Loops[identifier]; ok {
+					stop <- true
+					delete(Loops, identifier)
+				}
+				clientsMu.Unlock()
 
+			} else if msg.URL != "" && msg.Download == true { // If theres a URL and download is true, only download
+				log.Println("[WS] Download received from " + msg.From)
+
+				data, err := fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
+				if err != nil {
+					log.Fatal("[WS] Error while downloading song and info:", err)
+				}
+				msg := &models.SongInfo{
+					FilePath: data.FilePath,
+					Title:    data.Title,
+					Uploader: data.Uploader,
+					ID:       data.ID,
+					Duration: data.Duration,
+				}
+				jsonData, err := json.Marshal(msg)
+				err = websocket.Message.Send(ws, jsonData)
+				if err != nil {
+					log.Fatal("[WS] Error while sending song info:", err)
+				}
+				// FIXME make only play- not download- not possible currently unless i write another function in fs
+			} else if msg.URL != "" && msg.Download == false { // If theres a URL but download is false, that means download&play
+				log.Println("[WS] Play received from " + msg.From)
+
+				data, err := fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
+				if err != nil {
+					log.Fatal("[WS] Error while downloading song and info:", err)
+				}
+				msgData := &models.SongInfo{
+					FilePath: data.FilePath,
+					Title:    data.Title,
+					Uploader: data.Uploader,
+					ID:       data.ID,
+					Duration: data.Duration,
+				}
+				jsonData, err := json.Marshal(msgData)
+				err = websocket.Message.Send(ws, jsonData)
+				if err != nil {
+					log.Fatal("[WS] Error while sending song info:", err)
+				}
+				clientsMu.Lock()
+
+				seekChannel, exists := Seeks[identifier]
+				if !exists {
+					seekChannel = make(chan int)
+					Seeks[identifier] = seekChannel
+				}
+
+				stopChannel, exists := Loops[identifier]
+				if !exists {
+					stopChannel = make(chan bool, 1)
+					Loops[identifier] = stopChannel
+				}
+
+				doneChannel, exists := IsDone[identifier]
+				if !exists {
+					doneChannel = make(chan bool, 1)
+					IsDone[identifier] = doneChannel
+				}
+				go sendByteData(identifier, Clients[identifier].Conn, msgData, stopChannel, seekChannel, 0, doneChannel)
+
+				clientsMu.Unlock()
+
+			} else if msg.Seek >= 0 {
+				log.Println("[WS] Seek received from " + msg.From)
+				clientsMu.Lock()
+				if seek, ok := Seeks[identifier]; ok {
+					seek <- msg.Seek
+					log.Println("[WS] Seek received from " + msg.From + " sent to channel")
+
+				}
+				clientsMu.Unlock()
 			}
-			clientsMu.Unlock()
 		}
 
 	}
