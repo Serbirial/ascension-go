@@ -238,8 +238,9 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 		if len(ctx.Client.SongQueue[ctx.GuildID]) == 0 { // Disconnect after the 300s if the queue is still empty
 			if !ctx.Client.IsDownloading[ctx.GuildID] { // Only disconnect if not currently downloading
 				log.Println("[Music] Disconnecting because no activity and empty queue")
+				ctx.Client.SendStopToWS(ctx.GuildID)
+				ctx.Client.CloseWebsocket(ctx.GuildID)
 				delete(ctx.Client.Websockets, ctx.GuildID)
-
 				v.Disconnect()
 				return
 			}
