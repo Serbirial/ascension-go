@@ -471,8 +471,8 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	}()
 
 	send := make(chan []byte, 20) // 20 frames can be buffered for sending
-	var sendPaused = false
-	var doCloseChannel int32 = 1 // 1 = true, 0 = false
+	var sendPaused int32 = 1      // 1 = true, 0 = false
+	var doCloseChannel int32 = 1  // 1 = true, 0 = false
 
 	// setting the buffer too high for `send` MIGHT cause audio overlap when playing the next song in queue
 
@@ -510,9 +510,9 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				}
 			case seekNum, ok := <-seek:
 				if ok {
-					mu.Lock() // Lock when seeking to prevent race condition
 					atomic.StoreInt32(&doCloseChannel, 0)
-					sendPaused = true
+					atomic.StoreInt32(&sendPaused, 1)
+
 					wsStop <- true               // Stop receiving audio from WS server until done
 					close(send)                  // Stop sending audio to Discord
 					send = make(chan []byte, 20) // Re-make the buffer
@@ -542,11 +542,10 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					// Start receiving new frames from the server again
 
 					go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop)
-					// Un-pause the send and dont skip sending the close channel signal
-					sendPaused = false
+					// Atomic
+					time.Sleep(50 * time.Millisecond) // wait 50ms for goroutines
 					atomic.StoreInt32(&doCloseChannel, 1)
-
-					mu.Unlock()
+					atomic.StoreInt32(&sendPaused, 0)
 
 				}
 			}
@@ -584,12 +583,10 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				startCleanupProcess(v, ctx, stop, skip, seek)
 				return
 			}
-			mu.Lock() // Lock when sending to prevent race-condition
 
-			if sendPaused == false { // Dont send when paused
+			if atomic.LoadInt32(&sendPaused) == 0 { // Dont send when paused
 				send <- data
 			}
-			mu.Unlock()
 		}
 	}
 }
