@@ -370,6 +370,6 @@ func HandleWebSocket(ws *websocket.Conn) {
 	}
 
 	// FIXME closes early during bot sending back DONE
-	defer ws.Close()
+	ws.Close() // should be fixed with manual closing
 
 }
