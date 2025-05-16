@@ -242,15 +242,8 @@ func (bot *LanaBot) SendSeekToWS(seek int, identifier string) {
 
 func (bot *LanaBot) SendDONEToWS(identifier string) {
 	ws := bot.Websockets[identifier]
-	defer ws.Close()
-	msg := DoneMessage{
-		Done: true,
-	}
-	jsonData, err := json.Marshal(msg)
-	if err != nil {
-		log.Fatal("JSON Marshal error:", err)
-	}
-	err = websocket.Message.Send(ws, jsonData)
+
+	err := websocket.Message.Send(ws, []byte("DONE")) // Send DONE so the bot knows everything is OK and DONE
 	if err != nil {
 		log.Fatal("Error while establishing connection:", err)
 		panic("CANT CONNECT TO WS! CANT SEND DONE!")
