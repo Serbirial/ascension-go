@@ -26,8 +26,9 @@ type CommandLineConfig struct {
 	BotTokenFilePath string
 	BotPrefix        string
 
-	UseDCA bool
-	WSOnly bool
+	UseDCA        bool
+	WSOnly        bool
+	StartProfiler bool
 
 	RemoteWS       bool
 	RemoteWSURL    string
@@ -45,6 +46,8 @@ func parseFlags() CommandLineConfig {
 	flag.StringVar(&cfg.BotPrefix, "prefix", "a!", "The prefix the bot uses for commands. Defaults to `a!`.")
 	flag.BoolVar(&cfg.UseDCA, "useDCA", false, "Tells the bot to use DCA audio only (Bypasses usage of WS server)")
 	flag.BoolVar(&cfg.WSOnly, "ws-only", false, "Tells the program only launch the WS server")
+
+	flag.BoolVar(&cfg.StartProfiler, "profiler", false, "Flag that enables the profiler")
 
 	flag.BoolVar(&cfg.RemoteWS, "remote-ws", false, "Tells the bot to connect to another instances internal WS instead of launching its own")
 	flag.StringVar(&cfg.RemoteWSURL, "ws-url", wsURL, "The URL the bot uses for connecting to remote WS. Defaults to `ws://localhost:8182/ws`.")
@@ -128,12 +131,14 @@ func startBot() {
 }
 
 func main() {
-	go startProfiler()
 	if !config.RemoteWS { // Dont launch WS if connecting to remote WS server
 		go startWS()
 	}
 	if !config.WSOnly {
 		go startBot()
+	}
+	if config.StartProfiler {
+		go startProfiler()
 	}
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
