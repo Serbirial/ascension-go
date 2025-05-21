@@ -46,12 +46,11 @@ Ascension is a brand new discord music bot, taking focus on low resource utiliza
 
 ## Features ##
 
-:heavy_check_mark: Super high audio quality;
+:heavy_check_mark: Super high audio quality;\
 :heavy_check_mark: 100% Open source;\
 :heavy_check_mark: Made in Go;\
 :heavy_check_mark: Made with optimization as a priority;\
-:heavy_check_mark: Under active development;
-
+:heavy_check_mark: Under active development;\
 :heavy_check_mark: Can seperate Bot and Music server;
 
 ## Stack ##
