@@ -10,17 +10,18 @@ import (
 )
 
 const (
-	Intents = discordgo.IntentsDirectMessages |
-		discordgo.IntentsGuildBans |
-		discordgo.IntentsGuildEmojis |
-		discordgo.IntentsGuildIntegrations |
-		discordgo.IntentsGuildInvites |
-		discordgo.IntentsGuildMembers |
+	Intents = discordgo.IntentsGuilds |
+
+		//discordgo.IntentsDirectMessages |
+		// discordgo.IntentsGuildBans |
+		// discordgo.IntentsGuildEmojis |
+		// discordgo.IntentsGuildIntegrations |
+		// discordgo.IntentsGuildInvites |
+		// discordgo.IntentsGuildMembers |
 		discordgo.IntentsGuildMessageReactions |
 		discordgo.IntentsGuildMessages |
 		discordgo.IntentsGuildPresences |
-		discordgo.IntentsGuildVoiceStates |
-		discordgo.IntentsGuilds
+		discordgo.IntentsGuildVoiceStates
 )
 
 type SongInfoWs struct {
