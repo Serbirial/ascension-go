@@ -20,7 +20,7 @@ const (
 		// discordgo.IntentsGuildMembers |
 		discordgo.IntentsGuildMessageReactions |
 		discordgo.IntentsGuildMessages |
-		discordgo.IntentsGuildPresences |
+		// discordgo.IntentsGuildPresences |
 		discordgo.IntentsGuildVoiceStates
 )
 
