@@ -1,11 +1,12 @@
 package error
 
-import "fmt"
+import "log"
 
+// Checks error, logs it, and recovers if possible
 func ErrorCheckPanic(e error) {
 	if e != nil {
-		fmt.Println("\n\nNew Error:")
-		fmt.Println(e)
+		log.Println("\n\nNew Error:")
+		log.Println(e)
 		recover()
 	}
 }

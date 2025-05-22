@@ -24,6 +24,7 @@ var (
 	clientsMu sync.Mutex
 )
 
+// Receives byte data from ws connection and puts it into the `output` channel, will stop when `true` is sent through the `stop` channel
 func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -50,6 +51,7 @@ func RecvByteData(ws *websocket.Conn, output chan []byte, stop <-chan bool) {
 	}
 }
 
+// Sends byte data to ws connection, undocumented.
 func sendByteData(identifier string, ws *websocket.Conn, song *models.SongInfo, stop <-chan bool, seek <-chan int, startFrame int, done <-chan bool) {
 	ticker := time.NewTicker(15 * time.Millisecond) // 5ms under discords needed send timing to allow for buffering 4 frames at a time
 	defer ticker.Stop()
@@ -202,6 +204,7 @@ func sendByteData(identifier string, ws *websocket.Conn, song *models.SongInfo, 
 	}
 }
 
+// Handles a websocket connection
 func HandleWebSocket(ws *websocket.Conn) {
 	log.Println("[WS] Connected: ", ws.RemoteAddr())
 	var tempConnection bool = true // Assume temp connection
@@ -256,7 +259,7 @@ func HandleWebSocket(ws *websocket.Conn) {
 
 			clientsMu.Unlock()
 
-			// Process stop
+			// Process stop FIXME: stopping while queued will make the bot think its playing the next song but the server keeps playing the old one
 			if msg.Stop {
 				clientsMu.Lock()
 				if stop, ok := Loops[identifier]; ok {
