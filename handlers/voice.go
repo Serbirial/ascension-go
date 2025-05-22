@@ -263,7 +263,7 @@ func clearStatusAndRemoveCurrentSongFromQueue(ctx *models.Context) {
 			ctx.Client.SetQueue(ctx.GuildID, temp)
 			return
 		}
-
+	} else if !exists {
 		// Map was empty, treat it as if loop is false
 		ctx.Client.Session.UpdateCustomStatus("")
 		temp := arrays.RemoveFirstSong(ctx.Client.SongQueue[ctx.GuildID])
