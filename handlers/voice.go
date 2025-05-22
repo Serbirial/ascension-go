@@ -622,6 +622,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				// WS sent DONE, stop recv and start cleanup
 				log.Println("[Music] WS sent DONE, ending stream")
 				mu.Lock()
+				atomic.StoreInt32(&doCloseChannel, 0) // Dont send to closeChannel- already cleaning up
 				close(send)
 				wsStop <- true
 				mu.Unlock()
