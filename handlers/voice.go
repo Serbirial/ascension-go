@@ -183,14 +183,12 @@ func buildFrameIndex(file *os.File) ([]int64, error) {
 func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool, seek <-chan int) {
 	if len(ctx.Client.SongQueue) >= 1 {
 		// Get first SongInfo in Queue and play it
-		fmt.Println(ctx.Client.SongQueue[ctx.GuildID])
-		fmt.Println(ctx.Client.SongQueue[ctx.GuildID][0])
-
 		var song *models.SongInfo = ctx.Client.SongQueue[ctx.GuildID][0]
 		url := "https://www.youtube.com/watch?v=" + song.ID // Build the URL for the WS server
 
 		ctx.Client.SendPlayToWS(url, ctx.GuildID) // Send to the WS server to play
-		PlayFromWS(v, ctx, song, stop, skip, seek)
+		go PlayFromWS(v, ctx, song, stop, skip, seek)
+		return
 	}
 }
 
@@ -525,13 +523,13 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 				}
 			case seekNum, ok := <-seek:
 				if ok {
-					mu.Lock() // Lock while seeking
-					atomic.StoreInt32(&doCloseChannel, 0)
-					atomic.StoreInt32(&sendPaused, 1)
-					close(send)                  // Stop sending audio to Discord
-					wsStop <- true               // Stop receiving audio from WS server until done
-					send = make(chan []byte, 30) // Re-make the buffer
-					mu.Unlock()                  // Unlock after changing
+					mu.Lock()                             // Lock while seeking
+					atomic.StoreInt32(&doCloseChannel, 0) // Dont exit because of `close(send)`
+					atomic.StoreInt32(&sendPaused, 1)     // Pause sending to `send` buf
+					close(send)                           // Stop sending audio to Discord
+					wsStop <- true                        // Stop receiving audio from WS server until done
+					send = make(chan []byte, 30)          // Re-make the buffer
+					mu.Unlock()                           // Unlock after changing
 					// Drain wsBuffer to discard pre-seek frames
 				drain:
 					for {
@@ -555,7 +553,6 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					}()
 
 					// Start receiving new frames from the server again
-
 					go RecvByteData(ctx.Client.Websockets[ctx.GuildID], wsBuffer, wsStop)
 					// Atomic
 					time.Sleep(1 * time.Second) // wait 1s for goroutines
