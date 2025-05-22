@@ -58,7 +58,7 @@ var OnError = func(prefix string, str string, err error) {
 	}
 }
 
-// SendDCA will receive on the provied channel then send that to Discordgo
+// SendDCA will receive on the provied channel then send that to v.OpusSend
 func SendDCA(v *discordgo.VoiceConnection, dca <-chan []byte, dcaDone chan bool) {
 	if dca == nil {
 		return
@@ -129,6 +129,7 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 	}
 }
 
+// Recoveres the bot leaving the voice channel prematurely
 func recoverBotLeftChannel(ctx *models.Context) *discordgo.VoiceConnection {
 	channelID, err := checks.GetUserVoiceChannel(ctx)
 	if err != nil {
@@ -192,6 +193,7 @@ func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	}
 }
 
+// Cleanup process after a song has finished playing
 func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool, seek <-chan int) {
 	log.Println("[Music] Cleanup process started")
 	// Stop speaking
@@ -247,12 +249,29 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	}
 }
 
+// Clears the bots status and removes the current song from the queu
+// FIXME: dont remove if looped, just pass
 func clearStatusAndRemoveCurrentSongFromQueue(ctx *models.Context) {
-	ctx.Client.Session.UpdateCustomStatus("")
-	temp := arrays.RemoveFirstSong(ctx.Client.SongQueue[ctx.GuildID])
-	ctx.Client.SetQueue(ctx.GuildID, temp)
+	loop, exists := ctx.Client.IsLooping[ctx.GuildID]
+	if exists {
+		if loop { // Dont remove the current song from the queue, just replay it if looped
+			ctx.Client.Session.UpdateCustomStatus("")
+			return
+		} else if !loop { // Business as usual if not looped
+			ctx.Client.Session.UpdateCustomStatus("")
+			temp := arrays.RemoveFirstSong(ctx.Client.SongQueue[ctx.GuildID])
+			ctx.Client.SetQueue(ctx.GuildID, temp)
+			return
+		}
+
+		// Map was empty, treat it as if loop is false
+		ctx.Client.Session.UpdateCustomStatus("")
+		temp := arrays.RemoveFirstSong(ctx.Client.SongQueue[ctx.GuildID])
+		ctx.Client.SetQueue(ctx.GuildID, temp)
+	}
 }
 
+// Streams a DCA audio file from disk to discord
 func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, filename string, stop <-chan bool, skip <-chan bool, seek <-chan int) {
 
 	file, err := os.Open(filename)
@@ -440,7 +459,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	}
 }
 
-// TODO Play audio from remote server through WS
+// Plays DCA audio from remote WS connection
 func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *models.SongInfo, stop <-chan bool, skip <-chan bool, seek <-chan int) {
 	ws, exists := ctx.Client.Websockets[ctx.GuildID]
 	if !exists { // Make streaming connection

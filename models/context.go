@@ -7,7 +7,7 @@ import (
 )
 
 type Context struct {
-	Client         *LanaBot
+	Client         *Ascension
 	CurrentCommand Command
 	Author         *discordgo.User
 	ArgsRaw        string

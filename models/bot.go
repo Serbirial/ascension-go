@@ -31,7 +31,7 @@ type SongInfoWs struct {
 	ID       string `json:"ID"`
 }
 
-type LanaBot struct {
+type Ascension struct {
 	Session    *discordgo.Session
 	Websockets map[string]*websocket.Conn
 
@@ -42,6 +42,7 @@ type LanaBot struct {
 	SongQueue map[string][]*SongInfo
 
 	IsPlaying     map[string]bool
+	IsLooping     map[string]bool
 	IsDownloading map[string]bool
 	Token         string
 	Owners        []int
@@ -52,7 +53,7 @@ type LanaBot struct {
 	WsOrigin string
 }
 
-func (bot *LanaBot) ConnectToWS(url string, origin string, identifier string) *websocket.Conn {
+func (bot *Ascension) ConnectToWS(url string, origin string, identifier string) *websocket.Conn {
 	ws, err := websocket.Dial(url, "", origin)
 	if err != nil {
 		panic("CANT CONNECT TO WS SERVER: " + err.Error())
@@ -81,7 +82,7 @@ func (bot *LanaBot) ConnectToWS(url string, origin string, identifier string) *w
 	}
 	return ws
 }
-func (bot *LanaBot) CreateTempWS(url string, origin string, identifier string) *websocket.Conn {
+func (bot *Ascension) CreateTempWS(url string, origin string, identifier string) *websocket.Conn {
 	ws, err := websocket.Dial(url, "", origin)
 	if err != nil {
 		panic("CANT CONNECT TO WS SERVER: " + err.Error())
@@ -111,7 +112,7 @@ func (bot *LanaBot) CreateTempWS(url string, origin string, identifier string) *
 
 }
 
-func (bot *LanaBot) SendDownloadToWS(url string, identifier string) (*SongInfo, error) {
+func (bot *Ascension) SendDownloadToWS(url string, identifier string) (*SongInfo, error) {
 	ws := bot.CreateTempWS(bot.WsUrl, bot.WsOrigin, identifier) // Create a new WS connection for communicating with the server
 	defer ws.Close()
 	me, err := bot.Session.User("@me")
@@ -150,7 +151,7 @@ func (bot *LanaBot) SendDownloadToWS(url string, identifier string) (*SongInfo, 
 
 }
 
-func (bot *LanaBot) SendPlayToWS(url string, identifier string) (*SongInfo, error) {
+func (bot *Ascension) SendPlayToWS(url string, identifier string) (*SongInfo, error) {
 	ws := bot.CreateTempWS(bot.WsUrl, bot.WsOrigin, identifier) // Create a new WS connection for communicating with the server
 	defer ws.Close()
 	me, err := bot.Session.User("@me")
@@ -189,7 +190,7 @@ func (bot *LanaBot) SendPlayToWS(url string, identifier string) (*SongInfo, erro
 
 }
 
-func (bot *LanaBot) SendStopToWS(identifier string) {
+func (bot *Ascension) SendStopToWS(identifier string) {
 	ws := bot.CreateTempWS(bot.WsUrl, bot.WsOrigin, identifier) // Create a new WS connection for communicating with the server
 	defer ws.Close()
 	me, err := bot.Session.User("@me")
@@ -215,7 +216,7 @@ func (bot *LanaBot) SendStopToWS(identifier string) {
 	}
 }
 
-func (bot *LanaBot) SendSeekToWS(seek int, identifier string) {
+func (bot *Ascension) SendSeekToWS(seek int, identifier string) {
 	ws := bot.CreateTempWS(bot.WsUrl, bot.WsOrigin, identifier) // Create a new WS connection for communicating with the server
 	defer ws.Close()
 	me, err := bot.Session.User("@me")
@@ -241,7 +242,7 @@ func (bot *LanaBot) SendSeekToWS(seek int, identifier string) {
 	}
 }
 
-func (bot *LanaBot) SendDONEToWS(identifier string) {
+func (bot *Ascension) SendDONEToWS(identifier string) {
 	ws := bot.Websockets[identifier]
 
 	err := websocket.Message.Send(ws, []byte("DONE")) // Send DONE so the bot knows everything is OK and DONE
@@ -250,27 +251,30 @@ func (bot *LanaBot) SendDONEToWS(identifier string) {
 		panic("CANT CONNECT TO WS! CANT SEND DONE!")
 	}
 }
-func (bot *LanaBot) CloseWebsocket(identifier string) {
+func (bot *Ascension) CloseWebsocket(identifier string) {
 	ws := bot.Websockets[identifier]
 	ws.Close()
 
 }
 
-func (bot *LanaBot) AddToQueue(guildID string, song *SongInfo) {
+func (bot *Ascension) AddToQueue(guildID string, song *SongInfo) {
 	bot.SongQueue[guildID] = append(bot.SongQueue[guildID], song)
 }
-func (bot *LanaBot) SetQueue(guildID string, queue []*SongInfo) {
+func (bot *Ascension) SetQueue(guildID string, queue []*SongInfo) {
 	bot.SongQueue[guildID] = queue
 }
 
-func (bot *LanaBot) SetPlayingBool(guildID string, toSet bool) {
+func (bot *Ascension) SetPlayingBool(guildID string, toSet bool) {
 	bot.IsPlaying[guildID] = toSet
 }
-func (bot *LanaBot) SetDownloadingBool(guildID string, toSet bool) {
+func (bot *Ascension) SetDownloadingBool(guildID string, toSet bool) {
 	bot.IsDownloading[guildID] = toSet
 }
+func (bot *Ascension) SetLoopingBool(guildID string, toSet bool) {
+	bot.IsLooping[guildID] = toSet
+}
 
-func (bot *LanaBot) matchArgsToCommand(ctx *Context, argsRaw string) map[string]string {
+func (bot *Ascension) matchArgsToCommand(ctx *Context, argsRaw string) map[string]string {
 
 	// Maybe use SplitAfterN
 	var argsSplit = strings.SplitN(argsRaw, " ", len(ctx.CurrentCommand.Args)+1)
@@ -290,7 +294,7 @@ func (bot *LanaBot) matchArgsToCommand(ctx *Context, argsRaw string) map[string]
 	return args
 }
 
-func (bot *LanaBot) ProcessMessage(session *discordgo.Session, message *discordgo.MessageCreate) {
+func (bot *Ascension) ProcessMessage(session *discordgo.Session, message *discordgo.MessageCreate) {
 	if message.Author.ID == session.State.User.ID {
 		return
 	}
@@ -323,7 +327,7 @@ func (bot *LanaBot) ProcessMessage(session *discordgo.Session, message *discordg
 	}
 }
 
-func (bot *LanaBot) AddCommands(commands map[string]Command) {
+func (bot *Ascension) AddCommands(commands map[string]Command) {
 	for name, command := range commands {
 		log.Println("[BOT] Adding command: " + name)
 		bot.Commands[name] = command
@@ -331,6 +335,6 @@ func (bot *LanaBot) AddCommands(commands map[string]Command) {
 }
 
 //
-//func (bot LanaBot) AddIntents(session *discordgo.Session) {
+//func (bot Ascension) AddIntents(session *discordgo.Session) {
 //	session.Identify.Intents = discordgo.IntentsGuildMessages
 //}
