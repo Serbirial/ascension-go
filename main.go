@@ -108,7 +108,7 @@ func startBot() {
 
 	var websockets = make(map[string]*websocket.Conn)
 
-	var Bot = models.Ascension{Session: session, Websockets: websockets, StopChannels: stopChannels, SkipChannels: skipChannels, SeekChannels: seekChannels, SongQueue: songQueue, IsPlaying: isPlaying, IsLooping: isLooping, IsDownloading: isDownloading, Token: token, Owners: owners, Prefix: prefix, Commands: commandList, WsUrl: wsURL, WsOrigin: wsOrigin}
+	var Bot = models.Ascension{Session: session, Websockets: websockets, StopChannels: stopChannels, SkipChannels: skipChannels, SeekChannels: seekChannels, SongQueue: songQueue, IsPlaying: isPlaying, IsLooping: isLooping, IsDownloading: isDownloading, Token: token, Owners: owners, Prefix: prefix, Commands: commandList, WsUrl: config.RemoteWSURL, WsOrigin: config.RemoteWSOrigin}
 	Bot.AddCommands(commands.AllCommands)
 	session.Identify.Intents = models.Intents
 
