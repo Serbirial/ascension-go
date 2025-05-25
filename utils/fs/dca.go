@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"sync/atomic"
 )
 
 func convertToDCA(file string) string {
@@ -18,12 +19,17 @@ func convertToDCA(file string) string {
 	}
 	defer outFile.Close()
 
-	ffmpeg := exec.Command("ffmpeg", "-i", file, "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1")
+	ffmpeg := exec.Command("ffmpeg", "-i", "'", file, "'", "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1") // Wrapping the file in '' should prevent any errors resulting from file names
 
 	// Get ffmpeg's stdout (raw PCM stream)
 	ffmpegOut, err := ffmpeg.StdoutPipe()
 	if err != nil {
 		log.Fatalf("[Converter] Failed to get ffmpeg stdout: %v", err)
+	}
+	// Also get any errors
+	ffmpegErr, err := ffmpeg.StderrPipe()
+	if err != nil {
+		log.Fatalf("[Converter] Failed to get ffmpeg stderr: %v", err)
 	}
 
 	// Set up dca command, reading from ffmpegOut and writing to file
@@ -38,6 +44,9 @@ func convertToDCA(file string) string {
 		log.Fatalf("[Converter] Failed to start ffmpeg: %v", err)
 	}
 
+	// Read FFmpeg stderr in background
+	ffmpegErrOutput, _ := io.ReadAll(ffmpegErr)
+
 	// Then start dca (which reads from ffmpeg)
 	if err := dca.Start(); err != nil {
 		log.Fatalf("[Converter] Failed to start dca: %v", err)
@@ -45,7 +54,7 @@ func convertToDCA(file string) string {
 
 	// Wait for both to finish
 	if err := ffmpeg.Wait(); err != nil {
-		log.Fatalf("[Converter] ffmpeg exited with error: %v", err)
+		log.Fatalf("[Converter] ffmpeg exited with error: %v\n--- ffmpeg stderr ---\n%s", err, string(ffmpegErrOutput))
 	}
 	if err := dca.Wait(); err != nil {
 		log.Fatalf("[Converter] dca exited with error: %v", err)
@@ -73,15 +82,16 @@ func ConvertToDCALive(in chan []byte, out chan []byte, stop chan bool) {
 	}
 	dca.Stdin = pipeIn
 	dca.Stdout = pipeOut
-	defer pipeIn.Close()
-	defer pipeOut.Close()
 
-	var shouldStop = false
+	defer pipeOut.Close()
+	defer pipeIn.Close()
+
+	var shouldStop int32 = 0 // 1 = true, 0 = false
 
 	// Write to dca.Stdin (PCM data)
 	go func() {
 		for {
-			if shouldStop {
+			if atomic.LoadInt32(&shouldStop) == 1 {
 				return
 			}
 			data, ok := <-in
@@ -102,7 +112,7 @@ func ConvertToDCALive(in chan []byte, out chan []byte, stop chan bool) {
 		var opuslen int16
 
 		for {
-			if shouldStop {
+			if atomic.LoadInt32(&shouldStop) == 1 {
 				return
 			}
 			err := binary.Read(pipeOut, binary.LittleEndian, &opuslen)
@@ -130,7 +140,7 @@ func ConvertToDCALive(in chan []byte, out chan []byte, stop chan bool) {
 
 	select {
 	case <-stop:
-		shouldStop = true
+		atomic.StoreInt32(&shouldStop, 1)
 		dca.Process.Kill()
 		log.Printf("[Converter] Done converting DCA Live")
 		return
