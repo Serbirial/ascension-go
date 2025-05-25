@@ -19,7 +19,7 @@ func convertToDCA(file string) string {
 	}
 	defer outFile.Close()
 
-	ffmpeg := exec.Command("ffmpeg", "-i", "'", file, "'", "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1") // Wrapping the file in '' should prevent any errors resulting from file names
+	ffmpeg := exec.Command("ffmpeg", "-i", file, "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1")
 
 	// Get ffmpeg's stdout (raw PCM stream)
 	ffmpegOut, err := ffmpeg.StdoutPipe()
