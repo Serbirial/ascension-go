@@ -71,12 +71,27 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	// Download the youtube URL to a file
 	ctx.Send("Downloading...")
 	//songInfo, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
-	songInfo, err := ctx.Client.SendDownloadToWS(args["url"], ctx.GuildID)
-	if err != nil {
-		fmt.Println(err)
-		ctx.Send("Error with DownloadURL function.")
+	var songInfo *models.SongInfo = nil
+	if ctx.Client.DetachedDownloader {
+		songInfo, err = ctx.Client.SendDownloadDetached(args["url"])
+		if err != nil {
+			fmt.Println(err)
+			ctx.Send("Download Server had error while downloading.")
+			return
+		}
+	} else {
+		songInfo, err = ctx.Client.SendDownloadToWS(args["url"], ctx.GuildID)
+		if err != nil {
+			fmt.Println(err)
+			ctx.Send("Music Server had error downloading.")
+			return
+		}
+	}
+	if songInfo == nil {
+		ctx.Send("Downloader returned `nil`, check logs for errors.")
 		return
 	}
+
 	// Set the downloading bool back to false
 	ctx.Client.SetDownloadingBool(ctx.GuildID, false)
 

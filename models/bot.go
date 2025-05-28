@@ -1,8 +1,11 @@
 package models
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"log"
+	"net/http"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -49,8 +52,45 @@ type Ascension struct {
 	Prefix        string
 	Commands      map[string]Command
 
-	WsUrl    string
-	WsOrigin string
+	DetachedDownloader bool
+	DownloaderUrl      string
+	WsUrl              string
+	WsOrigin           string
+}
+
+// Exclusively used when clustering devices, will need to bridge IO of device running the bot and/or music server depending on setup.
+func (bot *Ascension) SendDownloadDetached(url string) (*SongInfo, error) {
+	type DownloadRequest struct {
+		URL string `json:"url"`
+	}
+
+	reqBody := DownloadRequest{URL: url}
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		log.Println("[DETACHED-IO] Failed to marshal request JSON:", err)
+		return nil, err
+	}
+
+	resp, err := http.Post(bot.DownloaderUrl+"/download", "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		log.Println("[DETACHED-IO] Failed to POST to detached downloader server:", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[DETACHED-IO] Download server responded with status: %d\n", resp.StatusCode)
+		return nil, errors.New("download server returned non-OK status")
+	}
+
+	var song SongInfo
+	if err := json.NewDecoder(resp.Body).Decode(&song); err != nil {
+		log.Println("[DETACHED-IO] Failed to decode SongInfo from response:", err)
+		return nil, err
+	}
+
+	log.Printf("[DETACHED-IO] Successfully downloaded and received info: %s\n", song.Title)
+	return &song, nil
 }
 
 func (bot *Ascension) ConnectToWS(url string, origin string, identifier string) *websocket.Conn {
@@ -113,6 +153,7 @@ func (bot *Ascension) CreateTempWS(url string, origin string, identifier string)
 }
 
 func (bot *Ascension) SendDownloadToWS(url string, identifier string) (*SongInfo, error) {
+
 	ws := bot.CreateTempWS(bot.WsUrl, bot.WsOrigin, identifier) // Create a new WS connection for communicating with the server
 	defer ws.Close()
 	me, err := bot.Session.User("@me")

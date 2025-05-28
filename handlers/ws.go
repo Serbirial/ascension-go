@@ -16,6 +16,8 @@ import (
 )
 
 var (
+	DownloaderIsDetached bool = false
+
 	Clients = make(map[string]*models.Client)
 	Loops   = make(map[string]chan bool)
 	Seeks   = make(map[string]chan int)
@@ -57,10 +59,20 @@ func sendByteData(identifier string, ws *websocket.Conn, song *models.SongInfo, 
 	defer ticker.Stop()
 	log.Println("[WS] Streaming connection started")
 
-	file, err := os.Open(song.FilePath)
-	if err != nil {
-		log.Println("Error opening dca file:", err)
-		return
+	var file *os.File
+	var err error
+	if DownloaderIsDetached { // The file will be mounted in a different directory over WLAN
+		file, err = os.Open("mounted/" + song.FilePath) // Should just be mounted at `mounted/`, should end up being `mounted/audio_temp/videoID`
+		if err != nil {
+			log.Println("Error opening mounted dca file:", err)
+			return
+		}
+	} else {
+		file, err = os.Open(song.FilePath)
+		if err != nil {
+			log.Println("Error opening dca file:", err)
+			return
+		}
 	}
 	defer file.Close()
 

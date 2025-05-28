@@ -30,12 +30,17 @@ type CommandLineConfig struct {
 	WSOnly        bool
 	StartProfiler bool
 
-	RemoteWS       bool
+	DownloaderOnly           bool
+	DetachedDownloaderServer bool
+	RemoteDownloaderURL      string
+
 	RemoteWSURL    string
 	RemoteWSOrigin string
 }
 
 var wsURL string = "ws://localhost:8182/ws"
+var downloaderURL string = "localhost:8183/"
+
 var wsOrigin string = "http://localhost/"
 
 func parseFlags() CommandLineConfig {
@@ -46,12 +51,15 @@ func parseFlags() CommandLineConfig {
 	flag.StringVar(&cfg.BotPrefix, "prefix", "a!", "The prefix the bot uses for commands. Defaults to `a!`.")
 	flag.BoolVar(&cfg.UseDCA, "useDCA", false, "Tells the bot to use DCA audio only (Bypasses usage of WS server)")
 	flag.BoolVar(&cfg.WSOnly, "ws-only", false, "Tells the program only launch the WS server")
+	flag.BoolVar(&cfg.DownloaderOnly, "downloader-only", false, "Tells the program only launch the Downloader/IO server")
 
 	flag.BoolVar(&cfg.StartProfiler, "profiler", false, "Flag that enables the profiler")
 
-	flag.BoolVar(&cfg.RemoteWS, "remote-ws", false, "Tells the bot to connect to another instances internal WS instead of launching its own")
-	flag.StringVar(&cfg.RemoteWSURL, "ws-url", wsURL, "The URL the bot uses for connecting to remote WS. Defaults to `ws://localhost:8182/ws`.")
+	flag.StringVar(&cfg.RemoteWSURL, "ws-url", wsURL, "The URL the bot uses for connecting to WS. Defaults to `ws://localhost:8182/ws`.")
 	flag.StringVar(&cfg.RemoteWSOrigin, "ws-origin", wsOrigin, "The Origin the bot uses for connecting to remote WS. Defaults to `http://localhost/`.")
+
+	flag.BoolVar(&cfg.DetachedDownloaderServer, "remote-downloader", false, "Tells the bot to use a remote/detached downloader server. This will require knowledge of bridging device IO, The device running the bot/music server needs to be able to access files on the server running the downloader.")
+	flag.StringVar(&cfg.RemoteDownloaderURL, "downloader-url", downloaderURL, "The URL the bot uses for connecting to a remote/detached downloader server. Defaults to `localhost:8183`.")
 
 	// Parse the flags
 	log.Println("[CLI] Parsing arguments.")
@@ -60,9 +68,9 @@ func parseFlags() CommandLineConfig {
 	log.Println("[CLI] Bot Prefix: " + cfg.BotPrefix)
 	log.Println("[CLI] Using DCA: " + strconv.FormatBool(cfg.UseDCA))
 	log.Println("[CLI] WS Only: " + strconv.FormatBool(cfg.WSOnly))
-	log.Println("[CLI] Remote WS: " + strconv.FormatBool(cfg.RemoteWS))
 	log.Println("[CLI] Remote WS URL: " + cfg.RemoteWSURL)
 	log.Println("[CLI] Remote WS UROriginL: " + cfg.RemoteWSOrigin)
+	log.Println("[CLI] Use detached IO/downloader server: " + strconv.FormatBool(cfg.DetachedDownloaderServer))
 
 	return cfg
 }
@@ -74,14 +82,23 @@ func startProfiler() {
 	log.Println("[PROFILER]", http.ListenAndServe("0.0.0.0:6060", nil))
 }
 
-func startWS() {
+func startWS() { // FIXME: recognize usage of detached downloader, meaning the IO is also detached
+	if config.DetachedDownloaderServer {
+		handlers.DownloaderIsDetached = true // Let handler know that
+	}
 	http.Handle("/ws", websocket.Handler(handlers.HandleWebSocket))
 
 	log.Println("[WS] Server running on :8182")
-	log.Fatal(http.ListenAndServe("localhost:8182", nil))
+	log.Fatal(http.ListenAndServe("0.0.0.0:8182", nil))
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
+}
+
+func startDownloaderServer() {
+	http.HandleFunc("/download", handlers.HandleDownloader)
+	log.Println("[DOWNLOADER] Running on :8183")
+	log.Fatal(http.ListenAndServe("0.0.0.0:8183", nil))
 }
 
 func startBot() {
@@ -108,7 +125,7 @@ func startBot() {
 
 	var websockets = make(map[string]*websocket.Conn)
 
-	var Bot = models.Ascension{Session: session, Websockets: websockets, StopChannels: stopChannels, SkipChannels: skipChannels, SeekChannels: seekChannels, SongQueue: songQueue, IsPlaying: isPlaying, IsLooping: isLooping, IsDownloading: isDownloading, Token: token, Owners: owners, Prefix: prefix, Commands: commandList, WsUrl: config.RemoteWSURL, WsOrigin: config.RemoteWSOrigin}
+	var Bot = models.Ascension{Session: session, Websockets: websockets, StopChannels: stopChannels, SkipChannels: skipChannels, SeekChannels: seekChannels, SongQueue: songQueue, IsPlaying: isPlaying, IsLooping: isLooping, IsDownloading: isDownloading, Token: token, Owners: owners, Prefix: prefix, Commands: commandList, WsUrl: config.RemoteWSURL, WsOrigin: config.RemoteWSOrigin, DetachedDownloader: config.DetachedDownloaderServer, DownloaderUrl: config.RemoteDownloaderURL}
 	Bot.AddCommands(commands.AllCommands)
 	session.Identify.Intents = models.Intents
 
@@ -138,13 +155,18 @@ func startBot() {
 }
 
 func main() {
-	if !config.RemoteWS { // Dont launch WS if connecting to remote WS server
+
+	if config.WSOnly { // Launch WS server if WS only
 		go startWS()
+	} else if config.DownloaderOnly { // Or launch the Downloader server if its Downloader only
+		go startDownloaderServer()
 	}
-	if !config.WSOnly {
+
+	if !config.WSOnly && !config.DownloaderOnly { // Dont launch the bot if in WS/Downloader server mode
 		go startBot()
+		log.Println("[CRITICAL] ATTENTION! YOU WILL NEED TO RUN THE MUSIC SERVER ALONGSIDE THE BOT!")
 	}
-	if config.StartProfiler {
+	if config.StartProfiler { // Launch the profiler if enabled
 		go startProfiler()
 	}
 	sc := make(chan os.Signal, 1)
