@@ -67,7 +67,8 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	}
 
 	// Set the downloading bool to true
-	ctx.Client.SetDownloadingBool(ctx.GuildID, true)
+	//ctx.Client.SetDownloadingBool(ctx.GuildID, true)
+	// Uncomment the above if you want downloads to happen 1-by-1 or have limited hardware
 	// Download the youtube URL to a file
 	ctx.Send("Downloading...")
 	//songInfo, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
