@@ -300,20 +300,6 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 		log.Fatalf("Error while setting speaking: %s", err)
 	}
 
-	// Send not "speaking" packet over the websocket when we finish and start the cleanup
-	defer func() {
-		// Remove the 'Playing X' status
-		err := checks.BotInVoice(ctx)
-		if err != nil {
-			return // Bot already left
-		}
-		ctx.Client.Session.UpdateCustomStatus("")
-		err = v.Speaking(false)
-		if err != nil {
-			log.Fatalf("Error while setting speaking: %s", err)
-		}
-	}()
-
 	send := make(chan []byte, 20) // 20 frames can be buffered for sending
 	// setting the buffer too high for `send` MIGHT cause audio overlap when playing the next song in queue
 	defer close(send)
@@ -483,23 +469,6 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	if err != nil {
 		log.Fatalf("Error while setting speaking: %s", err)
 	}
-
-	// Send not "speaking" packet over the websocket when we finish and start the cleanup
-	defer func() {
-		// Remove the 'Playing X' status
-		err := checks.BotInVoice(ctx)
-		if err != nil {
-			v = recoverBotLeftChannel(ctx) // This should only error when the bot leaves pre-maturely
-			if v == nil {
-				return
-			}
-		}
-		ctx.Client.Session.UpdateCustomStatus("")
-		err = v.Speaking(false)
-		if err != nil {
-			log.Fatalf("Error while setting speaking: %s", err)
-		}
-	}()
 
 	send := make(chan []byte, 30) // 30 frames can be buffered for sending
 	var sendPaused int32 = 0      // 1 = true, 0 = false
