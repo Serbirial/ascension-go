@@ -55,9 +55,29 @@ func convertToDCA(file string) string {
 	// Wait for both to finish
 	if err := ffmpeg.Wait(); err != nil {
 		log.Fatalf("[Converter] ffmpeg exited with error: %v", err) //, string(ffmpegErrOutput))
+		err = os.Remove(file)
+		if err != nil {
+			log.Fatalf("[Converter] failed to remove original file: %v", err)
+
+		}
+		err = os.Remove(outFile.Name())
+		if err != nil {
+			log.Fatalf("[Converter] failed to remove original file: %v", err)
+
+		}
 	}
 	if err := dca.Wait(); err != nil {
 		log.Fatalf("[Converter] dca exited with error: %v", err)
+		err = os.Remove(file)
+		if err != nil {
+			log.Fatalf("[Converter] failed to remove original file: %v", err)
+
+		}
+		err = os.Remove(outFile.Name())
+		if err != nil {
+			log.Fatalf("[Converter] failed to remove original file: %v", err)
+
+		}
 	}
 
 	log.Printf("[Converter] Successfully wrote DCA file to: %s\n", outputFilePath)
