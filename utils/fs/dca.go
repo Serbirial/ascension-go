@@ -54,7 +54,7 @@ func convertToDCA(file string) string {
 
 	// Wait for both to finish
 	if err := ffmpeg.Wait(); err != nil {
-		log.Fatalf("[Converter] ffmpeg exited with error: %v\n--- ffmpeg stderr ---\n%s", err) //, string(ffmpegErrOutput))
+		log.Fatalf("[Converter] ffmpeg exited with error: %v", err) //, string(ffmpegErrOutput))
 	}
 	if err := dca.Wait(); err != nil {
 		log.Fatalf("[Converter] dca exited with error: %v", err)
