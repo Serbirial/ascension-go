@@ -34,7 +34,7 @@ func DownloadDetached(DownloaderUrl, url string) (*models.SongInfo, error) {
 
 	resp, err := http.Post(DownloaderUrl+"/download", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		log.Println("[DETACHED-DOWnLOADER] Failed to POST to detached downloader server:", err)
+		log.Println("[DETACHED-DOWNLOADER] Failed to POST to detached downloader server:", err)
 		return nil, err
 	}
 	defer resp.Body.Close()

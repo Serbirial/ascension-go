@@ -27,10 +27,10 @@ func convertToDCA(file string) string {
 		log.Fatalf("[Converter] Failed to get ffmpeg stdout: %v", err)
 	}
 	// Also get any errors
-	ffmpegErr, err := ffmpeg.StderrPipe()
-	if err != nil {
-		log.Fatalf("[Converter] Failed to get ffmpeg stderr: %v", err)
-	}
+	//ffmpegErr, err := ffmpeg.StderrPipe()
+	//if err != nil {
+	//	log.Fatalf("[Converter] Failed to get ffmpeg stderr: %v", err)
+	//}
 
 	// Set up dca command, reading from ffmpegOut and writing to file
 	dca := exec.Command("/home/summers/dca", "-ab", "128") // ab is bitrate
@@ -45,7 +45,7 @@ func convertToDCA(file string) string {
 	}
 
 	// Read FFmpeg stderr in background
-	ffmpegErrOutput, _ := io.ReadAll(ffmpegErr)
+	//ffmpegErrOutput, _ := io.ReadAll(ffmpegErr)
 
 	// Then start dca (which reads from ffmpeg)
 	if err := dca.Start(); err != nil {
@@ -54,7 +54,7 @@ func convertToDCA(file string) string {
 
 	// Wait for both to finish
 	if err := ffmpeg.Wait(); err != nil {
-		log.Fatalf("[Converter] ffmpeg exited with error: %v\n--- ffmpeg stderr ---\n%s", err, string(ffmpegErrOutput))
+		log.Fatalf("[Converter] ffmpeg exited with error: %v\n--- ffmpeg stderr ---\n%s", err) //, string(ffmpegErrOutput))
 	}
 	if err := dca.Wait(); err != nil {
 		log.Fatalf("[Converter] dca exited with error: %v", err)
