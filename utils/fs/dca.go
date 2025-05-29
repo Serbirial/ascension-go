@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 )
 
-func convertToDCA(file string) string {
+func convertToDCA(file string) (string, error) {
 	log.Printf("[Converter] Converting %s to discord accepted DCA", file)
 	var outputFilePath string = file + ".dca"
 	// Create output file
@@ -71,11 +71,11 @@ func convertToDCA(file string) string {
 			log.Fatalf("[Converter] failed to remove original file: %v", err)
 
 		}
-		log.Fatalf("[Converter] ffmpeg exited with error: %v", err) //, string(ffmpegErrOutput))
-
+		log.Println("[Converter] ffmpeg exited with error: %v", err) //, string(ffmpegErrOutput))
+		return "", err
 	}
 	if err := dca.Wait(); err != nil {
-		log.Fatalf("[Converter] dca exited with error: %v", err)
+		log.Println("[Converter] dca exited with error: %v", err)
 		err = os.Remove(file)
 		if err != nil {
 			log.Fatalf("[Converter] failed to remove original file: %v", err)
@@ -84,8 +84,8 @@ func convertToDCA(file string) string {
 		err = os.Remove(outFile.Name())
 		if err != nil {
 			log.Fatalf("[Converter] failed to remove original file: %v", err)
-
 		}
+		return "", err
 	}
 
 	log.Printf("[Converter] Successfully wrote DCA file to: %s\n", outputFilePath)
@@ -95,7 +95,7 @@ func convertToDCA(file string) string {
 		log.Fatalf("[Converter] failed to remove original file: %v", err)
 
 	}
-	return outputFilePath
+	return outputFilePath, nil
 }
 
 func ConvertToDCALive(in chan []byte, out chan []byte, stop chan bool) {
