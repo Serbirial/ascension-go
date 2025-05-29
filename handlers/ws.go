@@ -16,7 +16,8 @@ import (
 )
 
 var (
-	DownloaderIsDetached bool = false
+	DownloaderIsDetached bool   = false
+	DownloaderURL        string = ""
 
 	Clients = make(map[string]*models.Client)
 	Loops   = make(map[string]chan bool)
@@ -59,20 +60,10 @@ func sendByteData(identifier string, ws *websocket.Conn, song *models.SongInfo, 
 	defer ticker.Stop()
 	log.Println("[WS] Streaming connection started")
 
-	var file *os.File
-	var err error
-	if DownloaderIsDetached { // The file will be mounted in a different directory over WLAN
-		file, err = os.Open("mounted/" + song.FilePath) // Should just be mounted at `mounted/`, should end up being `mounted/audio_temp/videoID`
-		if err != nil {
-			log.Println("Error opening mounted dca file:", err)
-			return
-		}
-	} else {
-		file, err = os.Open(song.FilePath)
-		if err != nil {
-			log.Println("Error opening dca file:", err)
-			return
-		}
+	file, err := os.Open(song.FilePath)
+	if err != nil {
+		log.Println("Error opening dca file:", err)
+		return
 	}
 	defer file.Close()
 
@@ -282,10 +273,18 @@ func HandleWebSocket(ws *websocket.Conn) {
 
 			} else if msg.URL != "" && msg.Download == true { // If theres a URL and download is true, only download
 				log.Println("[WS] Download received from " + msg.From)
-
-				data, err := fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
-				if err != nil {
-					log.Fatal("[WS] Error while downloading song and info:", err)
+				var data *models.SongInfo
+				var err error
+				if DownloaderIsDetached {
+					data, err = fs.DownloadDetached(DownloaderURL, msg.URL)
+					if err != nil {
+						log.Fatal("[WS] Error while downloading song and info from downloader server:", err)
+					}
+				} else {
+					data, err = fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
+					if err != nil {
+						log.Fatal("[WS] Error while downloading song and info:", err)
+					}
 				}
 				msg := &models.SongInfo{
 					FilePath: data.FilePath,
@@ -293,6 +292,9 @@ func HandleWebSocket(ws *websocket.Conn) {
 					Uploader: data.Uploader,
 					ID:       data.ID,
 					Duration: data.Duration,
+				}
+				if DownloaderIsDetached { // Replace string
+					msg.FilePath = "mounted/" + msg.FilePath
 				}
 				jsonData, err := json.Marshal(msg)
 				err = websocket.Message.Send(ws, jsonData)
@@ -302,10 +304,18 @@ func HandleWebSocket(ws *websocket.Conn) {
 				// FIXME make only play- not download- not possible currently unless i write another function in fs
 			} else if msg.URL != "" && msg.Download == false { // If theres a URL but download is false, that means download&play
 				log.Println("[WS] Play received from " + msg.From)
-
-				data, err := fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
-				if err != nil {
-					log.Fatal("[WS] Error while downloading song and info:", err)
+				var data *models.SongInfo
+				var err error
+				if DownloaderIsDetached {
+					data, err = fs.DownloadDetached(DownloaderURL, msg.URL)
+					if err != nil {
+						log.Fatal("[WS] Error while downloading song and info from downloader server:", err)
+					}
+				} else {
+					data, err = fs.DownloadYoutubeURLToFile(msg.URL, "audio_temp")
+					if err != nil {
+						log.Fatal("[WS] Error while downloading song and info:", err)
+					}
 				}
 				msgData := &models.SongInfo{
 					FilePath: data.FilePath,
@@ -314,6 +324,10 @@ func HandleWebSocket(ws *websocket.Conn) {
 					ID:       data.ID,
 					Duration: data.Duration,
 				}
+				if DownloaderIsDetached { // Replace the string to match mounted FS
+					msgData.FilePath = "mounted/" + msgData.FilePath
+				}
+
 				jsonData, err := json.Marshal(msgData)
 				err = websocket.Message.Send(ws, jsonData)
 				if err != nil {

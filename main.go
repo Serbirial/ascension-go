@@ -85,6 +85,7 @@ func startProfiler() {
 func startWS() { // FIXME: recognize usage of detached downloader, meaning the IO is also detached
 	if config.DetachedDownloaderServer {
 		handlers.DownloaderIsDetached = true // Let handler know that
+		handlers.DownloaderURL = config.RemoteDownloaderURL
 	}
 	http.Handle("/ws", websocket.Handler(handlers.HandleWebSocket))
 

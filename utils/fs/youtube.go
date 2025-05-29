@@ -1,9 +1,11 @@
 package fs
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 
 	"ascension/models"
@@ -17,6 +19,40 @@ import (
 
 const AUDIO_FOLDER string = "audio_temp"
 const FILE_ENDING string = "dca"
+
+func DownloadDetached(DownloaderUrl, url string) (*models.SongInfo, error) {
+	type DownloadRequest struct {
+		URL string `json:"url"`
+	}
+
+	reqBody := DownloadRequest{URL: url}
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		log.Println("[DETACHED-DOWNLOADER] Failed to marshal request JSON:", err)
+		return nil, err
+	}
+
+	resp, err := http.Post(DownloaderUrl+"/download", "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		log.Println("[DETACHED-DOWnLOADER] Failed to POST to detached downloader server:", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[DETACHED-DOWNLOADER] Download server responded with status: %d\n", resp.StatusCode)
+		return nil, errors.New("download server returned non-OK status")
+	}
+
+	var song models.SongInfo
+	if err := json.NewDecoder(resp.Body).Decode(&song); err != nil {
+		log.Println("[DETACHED-DOWNLOADER] Failed to decode SongInfo from response:", err)
+		return nil, err
+	}
+
+	log.Printf("[DETACHED-DOWNLOADER] Successfully downloaded and received info: %s\n", song.Title)
+	return &song, nil
+}
 
 func RemoveDownloadedSong(song models.SongInfo) {
 

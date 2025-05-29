@@ -67,29 +67,29 @@ func (bot *Ascension) SendDownloadDetached(url string) (*SongInfo, error) {
 	reqBody := DownloadRequest{URL: url}
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		log.Println("[DETACHED-IO] Failed to marshal request JSON:", err)
+		log.Println("[DETACHED-DOWNLOADER] Failed to marshal request JSON:", err)
 		return nil, err
 	}
 
 	resp, err := http.Post(bot.DownloaderUrl+"/download", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		log.Println("[DETACHED-IO] Failed to POST to detached downloader server:", err)
+		log.Println("[DETACHED-DOWnLOADER] Failed to POST to detached downloader server:", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[DETACHED-IO] Download server responded with status: %d\n", resp.StatusCode)
+		log.Printf("[DETACHED-DOWNLOADER] Download server responded with status: %d\n", resp.StatusCode)
 		return nil, errors.New("download server returned non-OK status")
 	}
 
 	var song SongInfo
 	if err := json.NewDecoder(resp.Body).Decode(&song); err != nil {
-		log.Println("[DETACHED-IO] Failed to decode SongInfo from response:", err)
+		log.Println("[DETACHED-DOWNLOADER] Failed to decode SongInfo from response:", err)
 		return nil, err
 	}
 
-	log.Printf("[DETACHED-IO] Successfully downloaded and received info: %s\n", song.Title)
+	log.Printf("[DETACHED-DOWNLOADER] Successfully downloaded and received info: %s\n", song.Title)
 	return &song, nil
 }
 
