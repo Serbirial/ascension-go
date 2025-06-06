@@ -206,7 +206,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	}
 	err = v.Speaking(false)
 	if err != nil {
-		log.Fatalf("Error while setting speaking: %s", err)
+		log.Println("Error while setting speaking: %s", err)
 	}
 	// Remove current song from queue and replace it with the updated one while clearing status
 	clearStatusAndRemoveCurrentSongFromQueue(ctx)
@@ -297,7 +297,7 @@ func PlayDCAFile(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mo
 	}
 	err = v.Speaking(true)
 	if err != nil {
-		log.Fatalf("Error while setting speaking: %s", err)
+		log.Println("Error while setting speaking: %s", err)
 	}
 
 	send := make(chan []byte, 20) // 20 frames can be buffered for sending
@@ -467,7 +467,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 	}
 	err = v.Speaking(false)
 	if err != nil {
-		log.Fatalf("Error while setting speaking: %s", err)
+		log.Println("Error while setting speaking: %s", err)
 	}
 
 	send := make(chan []byte, 30) // 30 frames can be buffered for sending
