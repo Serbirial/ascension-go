@@ -58,8 +58,8 @@ func parseFlags() CommandLineConfig {
 	flag.StringVar(&cfg.RemoteWSURL, "ws-url", wsURL, "The URL the bot uses for connecting to WS. Defaults to `ws://localhost:8182/ws`.")
 	flag.StringVar(&cfg.RemoteWSOrigin, "ws-origin", wsOrigin, "The Origin the bot uses for connecting to remote WS. Defaults to `http://localhost/`.")
 
-	flag.BoolVar(&cfg.DetachedDownloaderServer, "remote-downloader", false, "Tells the bot to use a remote/detached downloader server. This will require knowledge of bridging device IO, The device running the bot/music server needs to be able to access files on the server running the downloader.")
-	flag.StringVar(&cfg.RemoteDownloaderURL, "downloader-url", downloaderURL, "The URL the bot uses for connecting to a remote/detached downloader server. Defaults to `localhost:8183`.")
+	flag.BoolVar(&cfg.DetachedDownloaderServer, "remote-downloader", false, "Tells the bot/ws server to use a remote/detached downloader server. This will require knowledge of bridging device IO, The device running the bot/music server needs to be able to access files on the server running the downloader.")
+	flag.StringVar(&cfg.RemoteDownloaderURL, "downloader-url", downloaderURL, "The URL the bot/ws server uses for connecting to a remote/detached downloader server. Defaults to `localhost:8183`.")
 
 	// Parse the flags
 	log.Println("[CLI] Parsing arguments.")
