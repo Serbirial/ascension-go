@@ -501,7 +501,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 			select {
 			case signal, ok := <-stop:
 				if ok && signal {
-					closeChannel <- true
+					closeChannel <- true // FIXME: when stop command is used this panics
 					return
 				}
 			case signal, ok := <-skip:
@@ -514,10 +514,10 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					mu.Lock()                             // Lock while seeking
 					atomic.StoreInt32(&doCloseChannel, 0) // Dont exit because of `close(send)`
 					atomic.StoreInt32(&sendPaused, 1)     // Pause sending to `send` buf
-					close(send)                           // Stop sending audio to Discord
-					wsStop <- true                        // Stop receiving audio from WS server until done
-					send = make(chan []byte, 30)          // Re-make the buffer
-					mu.Unlock()                           // Unlock after changing
+					//close(send)                           // Stop sending audio to Discord
+					wsStop <- true // Stop receiving audio from WS server until done
+					//send = make(chan []byte, 30)          // Re-make the buffer
+					mu.Unlock() // Unlock after changing
 					// Drain wsBuffer to discard pre-seek frames
 				drain:
 					for {
@@ -547,6 +547,7 @@ func PlayFromWS(v *discordgo.VoiceConnection, ctx *models.Context, songInfo *mod
 					atomic.StoreInt32(&doCloseChannel, 1)
 					atomic.StoreInt32(&sendPaused, 0)
 					mu.Unlock() // Unlock after stream is restarted
+					return
 
 				}
 			}
