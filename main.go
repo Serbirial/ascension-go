@@ -1,5 +1,8 @@
 package main
 
+// TODO:
+// Make queue for downloads, which a goroutine reads from, downloads, and adds to queue all by itself to prevent any form of race horse
+
 import (
 	"flag"
 	"os"
