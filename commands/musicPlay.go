@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"time"
 
 	"ascension/handlers"
 	"ascension/models"
@@ -54,17 +55,18 @@ func playCommand(ctx *models.Context, args map[string]string) {
 
 	}
 
-	// Uncomment the below if you want downloads to happen 1-by-1 or have limited hardware
+	// FIXME: use mutex lock to prevent race-horse (2 downloads at the same time = 2 plays sometimes)
+	// Then comment this out so simultaneous downloads can happen
 	// If the bot is currently downloading, wait for download to finish before starting next download.
-	//for {
-	//	if ctx.Client.IsDownloading[ctx.GuildID] {
-	//		// keep looping until IsDownloading is false
-	//		time.Sleep(1 * time.Second)
-	//	} else if !ctx.Client.IsDownloading[ctx.GuildID] {
-	//		// exit the loop and download the song
-	//		break
-	//	}
-	//}
+	for {
+		if ctx.Client.IsDownloading[ctx.GuildID] {
+			// keep looping until IsDownloading is false
+			time.Sleep(1 * time.Second)
+		} else if !ctx.Client.IsDownloading[ctx.GuildID] {
+			// exit the loop and download the song
+			break
+		}
+	}
 
 	// Set the downloading bool to true
 	ctx.Client.SetDownloadingBool(ctx.GuildID, true)
@@ -91,20 +93,21 @@ func playCommand(ctx *models.Context, args map[string]string) {
 		ctx.Send("Downloader returned `nil`, check logs for errors.")
 		return
 	}
+
 	// Set the downloading bool back to false
 	ctx.Client.SetDownloadingBool(ctx.GuildID, false)
 
 	// Add the song to the queue
 	ctx.Client.AddToQueue(ctx.GuildID, songInfo)
+
 	ctx.Send("Added `" + songInfo.Title + "` to queue")
 
-	if !ctx.Client.IsDownloading[ctx.GuildID] { // If not downloading or playing, play it instantly
-		// Nothing is playing: start playing song instantly.
-		if ctx.Client.IsPlaying[ctx.GuildID] == false {
-			ctx.Client.SetPlayingBool(ctx.GuildID, true)      // Set playing
-			ctx.Client.SendPlayToWS(args["url"], ctx.GuildID) // Notify the WS server to start playing the song
-			handlers.PlayFromWS(voice, ctx, songInfo, ctx.Client.StopChannels[ctx.GuildID], ctx.Client.SkipChannels[ctx.GuildID], ctx.Client.SeekChannels[ctx.GuildID])
+	// Nothing is playing: start playing song instantly.
+	// TODO: add `songAddMutexLock` to prevent race-horse from goroutines, use it here and in the handler
+	if ctx.Client.IsPlaying[ctx.GuildID] == false {
+		ctx.Client.SetPlayingBool(ctx.GuildID, true)      // Set playing
+		ctx.Client.SendPlayToWS(args["url"], ctx.GuildID) // Notify the WS server to start playing the song
+		handlers.PlayFromWS(voice, ctx, songInfo, ctx.Client.StopChannels[ctx.GuildID], ctx.Client.SkipChannels[ctx.GuildID], ctx.Client.SeekChannels[ctx.GuildID])
 
-		}
 	}
 }
