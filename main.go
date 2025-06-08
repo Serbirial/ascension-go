@@ -39,7 +39,13 @@ type CommandLineConfig struct {
 
 	RemoteWSURL    string
 	RemoteWSOrigin string
+
+	SpotifyID     string
+	SpotifySecret string
 }
+
+const spotifySecret = ""
+const spotifyID = ""
 
 var wsURL string = "ws://localhost:8182/ws"
 var downloaderURL string = "localhost:8183/"
@@ -64,10 +70,16 @@ func parseFlags() CommandLineConfig {
 	flag.BoolVar(&cfg.DetachedDownloaderServer, "remote-downloader", false, "Tells the bot/ws server to use a remote/detached downloader server. This will require knowledge of bridging device IO, The device running the bot/music server needs to be able to access files on the server running the downloader.")
 	flag.StringVar(&cfg.RemoteDownloaderURL, "downloader-url", downloaderURL, "The URL the bot/ws server uses for connecting to a remote/detached downloader server. Defaults to `localhost:8183`.")
 
+	flag.StringVar(&cfg.SpotifyID, "spotify-id", spotifyID, "The spotify client ID, required for spotify.")
+	flag.StringVar(&cfg.SpotifySecret, "spotify-secret", spotifySecret, "Spotify client secret, required for spotify.")
+
 	// Parse the flags
 	log.Println("[CLI] Parsing arguments.")
 	flag.Parse()
 	log.Println("[CLI] Bot Token File: " + cfg.BotTokenFilePath)
+	log.Println("[CLI] Spotify ID: " + cfg.SpotifyID)
+	log.Println("[CLI] Spotify Secret: " + cfg.SpotifySecret)
+
 	log.Println("[CLI] Bot Prefix: " + cfg.BotPrefix)
 	log.Println("[CLI] Using DCA: " + strconv.FormatBool(cfg.UseDCA))
 	log.Println("[CLI] WS Only: " + strconv.FormatBool(cfg.WSOnly))
@@ -125,11 +137,18 @@ func startBot() {
 	var isPlaying = make(map[string]bool)
 	var isLooping = make(map[string]bool)
 	var isDownloading = make(map[string]bool)
-	var songQueue = make(map[string][]*models.SongInfo)
+	var songQueues = make(map[string]*models.SongQueue)
 
 	var websockets = make(map[string]*websocket.Conn)
 
-	var Bot = models.Ascension{Session: session, Websockets: websockets, StopChannels: stopChannels, SkipChannels: skipChannels, SeekChannels: seekChannels, SongQueue: songQueue, IsPlaying: isPlaying, IsLooping: isLooping, IsDownloading: isDownloading, Token: token, Owners: owners, Prefix: prefix, Commands: commandList, WsUrl: config.RemoteWSURL, WsOrigin: config.RemoteWSOrigin, DetachedDownloader: config.DetachedDownloaderServer, DownloaderUrl: config.RemoteDownloaderURL}
+	// Initialize download queue and start downloader loop
+	downloadQueue := &models.DownloadQueue{
+		SongQueues: songQueues,
+		Queue:      []*models.DownloadQueueRequest{},
+	}
+	downloadQueue.StartDownloader()
+
+	var Bot = models.Ascension{Session: session, Websockets: websockets, StopChannels: stopChannels, SkipChannels: skipChannels, SeekChannels: seekChannels, SongQueue: songQueues, DownloadQueue: downloadQueue, IsPlaying: isPlaying, IsLooping: isLooping, IsDownloading: isDownloading, Token: token, Owners: owners, Prefix: prefix, Commands: commandList, WsUrl: config.RemoteWSURL, WsOrigin: config.RemoteWSOrigin, DetachedDownloader: config.DetachedDownloaderServer, DownloaderUrl: config.RemoteDownloaderURL, SpotifyID: config.SpotifyID, SpotifySecret: config.SpotifySecret}
 	Bot.AddCommands(commands.AllCommands)
 	session.Identify.Intents = models.Intents
 

@@ -22,7 +22,7 @@ func musicInfoCommand(ctx *models.Context, args map[string]string) {
 		return
 	}
 
-	var song *models.SongInfo = ctx.Client.SongQueue[ctx.GuildID][0]
+	var song *models.SongInfo = ctx.Client.SongQueue[ctx.GuildID].Current()
 
 	ctx.Send(song.Title + " - " + song.Uploader)
 

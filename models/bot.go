@@ -42,7 +42,8 @@ type Ascension struct {
 	SkipChannels map[string]chan bool
 	SeekChannels map[string]chan int
 
-	SongQueue map[string][]*SongInfo
+	SongQueue     map[string]*SongQueue
+	DownloadQueue *DownloadQueue
 
 	IsPlaying     map[string]bool
 	IsLooping     map[string]bool
@@ -56,6 +57,9 @@ type Ascension struct {
 	DownloaderUrl      string
 	WsUrl              string
 	WsOrigin           string
+
+	SpotifyID     string
+	SpotifySecret string
 }
 
 // Exclusively used when clustering devices, will need to bridge IO of device running the bot and/or music server depending on setup.
@@ -299,10 +303,7 @@ func (bot *Ascension) CloseWebsocket(identifier string) {
 }
 
 func (bot *Ascension) AddToQueue(guildID string, song *SongInfo) {
-	bot.SongQueue[guildID] = append(bot.SongQueue[guildID], song)
-}
-func (bot *Ascension) SetQueue(guildID string, queue []*SongInfo) {
-	bot.SongQueue[guildID] = queue
+	bot.SongQueue[guildID].Add(song)
 }
 
 func (bot *Ascension) SetPlayingBool(guildID string, toSet bool) {
@@ -312,7 +313,7 @@ func (bot *Ascension) SetDownloadingBool(guildID string, toSet bool) {
 	bot.IsDownloading[guildID] = toSet
 }
 func (bot *Ascension) SetLoopingBool(guildID string, toSet bool) {
-	bot.IsLooping[guildID] = toSet
+	bot.SongQueue[guildID].Loop = toSet
 }
 
 func (bot *Ascension) matchArgsToCommand(ctx *Context, argsRaw string) map[string]string {

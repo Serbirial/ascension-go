@@ -2,7 +2,7 @@ package commands
 
 import (
 	"fmt"
-	"time"
+	"log"
 
 	"ascension/handlers"
 	"ascension/models"
@@ -30,19 +30,13 @@ func playCommand(ctx *models.Context, args map[string]string) {
 	// NOTE: Setting mute to false, deaf to true.
 	err = checks.BotInVoice(ctx)
 	if err != nil {
-		channelID, err := checks.GetUserVoiceChannel(ctx)
+		channelID, _ := checks.GetUserVoiceChannel(ctx)
 		_, err = ctx.Client.Session.ChannelVoiceJoin(ctx.GuildID, channelID, false, true)
 		if err != nil {
 			fmt.Println(err)
 			ctx.Send("Error joining the voice channel")
 			return
 		}
-	}
-	voice, err := checks.GetBotVoiceChannel(ctx)
-	if err != nil {
-		fmt.Println(err)
-		ctx.Send("Error getting the voice channel")
-		return
 	}
 
 	// Start the WS connection for the guild and create everything needed
@@ -55,59 +49,59 @@ func playCommand(ctx *models.Context, args map[string]string) {
 
 	}
 
-	// FIXME: use mutex lock to prevent race-horse (2 downloads at the same time = 2 plays sometimes)
-	// Then comment this out so simultaneous downloads can happen
-	// If the bot is currently downloading, wait for download to finish before starting next download.
-	for {
-		if ctx.Client.IsDownloading[ctx.GuildID] {
-			// keep looping until IsDownloading is false
-			time.Sleep(1 * time.Second)
-		} else if !ctx.Client.IsDownloading[ctx.GuildID] {
-			// exit the loop and download the song
-			break
+	// Parse spotify to youtube
+	if handlers.ContainsSpotify(args["url"]) {
+		stype, sid, err := handlers.ParseSpotifyURL(args["url"])
+		if err != nil {
+			ctx.Send("Error parsing spotify URL")
+			return
+		}
+
+		if stype == "track" {
+			title, artist, err := handlers.GetTrackTitleAndArtist(sid, token)
+			if err != nil {
+				log.Fatal(err)
+			}
+			// TODO: search on yt, get first result, add to download queue
+		} else if stype == "playlist" {
+			results, err := handlers.GetPlaylistTitlesAndArtists(id, token)
+			if err != nil {
+				log.Fatal(err)
+			}
+			for _, track := range results {
+				// TODO: search on yt, get first result, add to download queue
+			}
 		}
 	}
 
-	// Set the downloading bool to true
-	ctx.Client.SetDownloadingBool(ctx.GuildID, true)
-	// Download the youtube URL to a file
+	// Download the youtube URL to a file)
 	ctx.Send("Downloading...")
-	//songInfo, err := fs.DownloadYoutubeURLToFile(args["url"], AUDIO_FOLDER)
-	var songInfo *models.SongInfo = nil
-	if ctx.Client.DetachedDownloader {
-		songInfo, err = ctx.Client.SendDownloadDetached(args["url"])
-		if err != nil {
-			fmt.Println(err)
-			ctx.Send("Download Server had error while downloading.")
-			return
-		}
-	} else {
-		songInfo, err = ctx.Client.SendDownloadToWS(args["url"], ctx.GuildID)
-		if err != nil {
-			fmt.Println(err)
-			ctx.Send("Music Server had error downloading.")
-			return
-		}
-	}
-	if songInfo == nil {
-		ctx.Send("Downloader returned `nil`, check logs for errors.")
-		return
-	}
-
-	// Set the downloading bool back to false
+	ctx.Client.SetDownloadingBool(ctx.GuildID, true)
+	done := ctx.Client.DownloadQueue.Add(ctx, args["url"], ctx.GuildID)
+	isDone := <-done
 	ctx.Client.SetDownloadingBool(ctx.GuildID, false)
 
-	// Add the song to the queue
-	ctx.Client.AddToQueue(ctx.GuildID, songInfo)
-
-	ctx.Send("Added `" + songInfo.Title + "` to queue")
-
-	// Nothing is playing: start playing song instantly.
-	// TODO: add `songAddMutexLock` to prevent race-horse from goroutines, use it here and in the handler
-	if ctx.Client.IsPlaying[ctx.GuildID] == false {
-		ctx.Client.SetPlayingBool(ctx.GuildID, true)      // Set playing
-		ctx.Client.SendPlayToWS(args["url"], ctx.GuildID) // Notify the WS server to start playing the song
-		handlers.PlayFromWS(voice, ctx, songInfo, ctx.Client.StopChannels[ctx.GuildID], ctx.Client.SkipChannels[ctx.GuildID], ctx.Client.SeekChannels[ctx.GuildID])
-
+	if isDone {
+		if !ctx.Client.IsPlaying[ctx.GuildID] {
+			voice, err := checks.GetBotVoiceChannel(ctx)
+			if err != nil {
+				fmt.Println(err)
+				ctx.Send("Error getting the voice channel")
+				return
+			}
+			ctx.Client.SetPlayingBool(ctx.GuildID, true)
+			ctx.Client.SendPlayToWS(args["url"], ctx.GuildID)
+			handlers.PlayFromWS(
+				voice,
+				ctx,
+				ctx.Client.SongQueue[ctx.GuildID].Current(),
+				ctx.Client.StopChannels[ctx.GuildID],
+				ctx.Client.SkipChannels[ctx.GuildID],
+				ctx.Client.SeekChannels[ctx.GuildID],
+			)
+		}
+	} else if !isDone {
+		ctx.Send("Error during downloading, doing nothing.")
 	}
+
 }

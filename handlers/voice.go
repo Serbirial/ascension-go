@@ -10,7 +10,6 @@ package handlers
 
 import (
 	"ascension/models"
-	"ascension/utils/arrays"
 	"ascension/utils/checks"
 	"encoding/binary"
 	"fmt"
@@ -184,7 +183,7 @@ func buildFrameIndex(file *os.File) ([]int64, error) {
 func playNextSongInQueue(v *discordgo.VoiceConnection, ctx *models.Context, stop <-chan bool, skip <-chan bool, seek <-chan int) {
 	if len(ctx.Client.SongQueue) >= 1 {
 		// Get first SongInfo in Queue and play it
-		var song *models.SongInfo = ctx.Client.SongQueue[ctx.GuildID][0]
+		var song *models.SongInfo = ctx.Client.SongQueue[ctx.GuildID].Current()
 		url := "https://www.youtube.com/watch?v=" + song.ID // Build the URL for the WS server
 
 		ctx.Client.SendPlayToWS(url, ctx.GuildID) // Send to the WS server to play
@@ -213,7 +212,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 	// Set Playing to false
 	ctx.Client.SetPlayingBool(ctx.GuildID, false)
 	// Check if Queue is empty
-	if len(ctx.Client.SongQueue[ctx.GuildID]) >= 1 {
+	if len(ctx.Client.SongQueue[ctx.GuildID].Queue) >= 1 {
 		log.Println("[Music] Queue is not empty, playing next song")
 		// FIXME
 		// Give the bot 2 seconds to prevent audio overlap
@@ -221,7 +220,7 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 		// Play the next song
 		playNextSongInQueue(v, ctx, stop, skip, seek)
 		return
-	} else if len(ctx.Client.SongQueue[ctx.GuildID]) == 0 { // Queue was empty
+	} else if len(ctx.Client.SongQueue[ctx.GuildID].Queue) == 0 { // Queue was empty
 		log.Println("[Music] Queue is empty, waiting for activity")
 		// Wait 60s to see if activity happens
 		var tries int = 0
@@ -230,13 +229,13 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 				break
 			}
 			time.Sleep(1 * time.Second)
-			if len(ctx.Client.SongQueue[ctx.GuildID]) >= 1 { // queue is no longer empty
+			if len(ctx.Client.SongQueue[ctx.GuildID].Queue) >= 1 { // queue is no longer empty
 				log.Println("[Music] Activity in queue")
 				break
 			}
 			tries++
 		}
-		if len(ctx.Client.SongQueue[ctx.GuildID]) == 0 { // Disconnect after the 300s if the queue is still empty
+		if len(ctx.Client.SongQueue[ctx.GuildID].Queue) == 0 { // Disconnect after the 300s if the queue is still empty
 			if !ctx.Client.IsDownloading[ctx.GuildID] { // Only disconnect if not currently downloading
 				log.Println("[Music] Disconnecting because no activity and empty queue")
 				ctx.Client.SendStopToWS(ctx.GuildID)
@@ -254,20 +253,18 @@ func startCleanupProcess(v *discordgo.VoiceConnection, ctx *models.Context, stop
 func clearStatusAndRemoveCurrentSongFromQueue(ctx *models.Context) {
 	loop, exists := ctx.Client.IsLooping[ctx.GuildID]
 	if exists {
-		if loop { // Dont remove the current song from the queue, just replay it if looped
-			ctx.Client.Session.UpdateCustomStatus("")
+		if loop { // Dont do anything
 			return
 		} else if !loop { // Business as usual if not looped
 			ctx.Client.Session.UpdateCustomStatus("")
-			temp := arrays.RemoveFirstSong(ctx.Client.SongQueue[ctx.GuildID])
-			ctx.Client.SetQueue(ctx.GuildID, temp)
+			ctx.Client.SongQueue[ctx.GuildID].Next()
 			return
 		}
 	} else if !exists {
 		// Map was empty, treat it as if loop is false
 		ctx.Client.Session.UpdateCustomStatus("")
-		temp := arrays.RemoveFirstSong(ctx.Client.SongQueue[ctx.GuildID])
-		ctx.Client.SetQueue(ctx.GuildID, temp)
+		ctx.Client.SongQueue[ctx.GuildID].Next()
+
 	}
 }
 

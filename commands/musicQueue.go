@@ -16,7 +16,7 @@ var QueueCommand = models.Command{
 func queueCommand(ctx *models.Context, args map[string]string) {
 	var msg string = "Queue:"
 
-	for _, songInfo := range ctx.Client.SongQueue[ctx.GuildID] {
+	for _, songInfo := range ctx.Client.SongQueue[ctx.GuildID].Queue {
 		msg += "	" + songInfo.Title + " - " + songInfo.Uploader + "\n"
 	}
 
