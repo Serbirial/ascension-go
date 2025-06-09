@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"ascension/models"
 	"io"
@@ -90,20 +91,47 @@ func loadSongInfoFromFile(filename string) (*models.SongInfo, error) {
 	return &songInfo, nil
 }
 
+func ExtractYouTubeVideoID(parsedURL *url.URL) (string, error) {
+	host := parsedURL.Hostname()
+
+	switch {
+	case strings.Contains(host, "youtube.com"):
+		// Example: https://www.youtube.com/watch?v=VIDEOID
+		videoID := parsedURL.Query().Get("v")
+		if videoID == "" {
+			return "", fmt.Errorf("no video ID found in youtube.com URL")
+		}
+		return videoID, nil
+
+	case strings.Contains(host, "youtu.be"):
+		// Example: https://youtu.be/VIDEOID
+		videoID := strings.Trim(parsedURL.Path, "/")
+		if videoID == "" {
+			return "", fmt.Errorf("no video ID found in youtu.be URL")
+		}
+		return videoID, nil
+
+	default:
+		return "", fmt.Errorf("unsupported YouTube domain: %s", host)
+	}
+}
+
 func DownloadYoutubeURLToFile(rawurl string, folder string) (*models.SongInfo, error) {
 	parsedURL, err := url.Parse(rawurl)
 	if err != nil {
 		return nil, err
 	}
-	videoID := parsedURL.Query().Get("v")
-	if videoID == "" {
-		return nil, fmt.Errorf("no video ID found in URL")
+	videoID, err := ExtractYouTubeVideoID(parsedURL)
+	if err != nil {
+		return nil, err
 	}
 	path := fmt.Sprintf("%s/%s.json", AUDIO_FOLDER, videoID)
 	log.Println("Looking for metadata at " + path)
 
 	if _, err := os.Stat(path); err == nil {
-		return loadSongInfoFromFile(path)
+		if _, err := os.Stat(fmt.Sprintf("%s/%s.%s", AUDIO_FOLDER, videoID, FILE_ENDING)); err == nil {
+			return loadSongInfoFromFile(path)
+		}
 	}
 
 	log.Println("[yt-dlp] Downloading metadata")
@@ -148,6 +176,7 @@ func DownloadYoutubeURLToFile(rawurl string, folder string) (*models.SongInfo, e
 		// Convert the opus to discord accepted DCA and get the new path
 		_, err = convertToDCA(filePath)
 		if err != nil {
+			os.Remove(path) // Remove JSON metadata
 			return nil, err
 		}
 
