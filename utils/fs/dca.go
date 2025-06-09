@@ -71,11 +71,11 @@ func convertToDCA(file string) (string, error) {
 			log.Fatalf("[Converter] failed to remove original file: %v", err)
 
 		}
-		log.Println("[Converter] ffmpeg exited with error: %v", err) //, string(ffmpegErrOutput))
+		log.Printf("[Converter] ffmpeg exited with error: %v", err) //, string(ffmpegErrOutput))
 		return "", err
 	}
 	if err := dca.Wait(); err != nil {
-		log.Println("[Converter] dca exited with error: %v", err)
+		log.Printf("[Converter] dca exited with error: %v", err)
 		err = os.Remove(file)
 		if err != nil {
 			log.Fatalf("[Converter] failed to remove original file: %v", err)
