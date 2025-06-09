@@ -11,6 +11,11 @@ import (
 	"regexp"
 )
 
+type SpotifyTrack struct {
+	Title  string `json:"title"`
+	Artist string `json:"artist"`
+}
+
 func GetSpotifyAccessToken(clientID, clientSecret string) (string, error) {
 	data := url.Values{}
 	data.Set("grant_type", "client_credentials")
@@ -58,8 +63,8 @@ func GetTrackTitleAndArtist(trackID, token string) (string, string, error) {
 	return result.Name, result.Artists[0].Name, nil
 }
 
-func GetPlaylistTitlesAndArtists(playlistID, token string) ([]string, error) {
-	var results []string
+func GetPlaylistTitlesAndArtists(playlistID, token string) ([]SpotifyTrack, error) {
+	var results []SpotifyTrack
 	url := "https://api.spotify.com/v1/playlists/" + playlistID + "/tracks"
 
 	for url != "" {
@@ -88,7 +93,10 @@ func GetPlaylistTitlesAndArtists(playlistID, token string) ([]string, error) {
 
 		for _, item := range page.Items {
 			if len(item.Track.Artists) > 0 {
-				results = append(results, fmt.Sprintf("%s - %s", item.Track.Artists[0].Name, item.Track.Name))
+				results = append(results, SpotifyTrack{
+					Title:  item.Track.Name,
+					Artist: item.Track.Artists[0].Name,
+				})
 			}
 		}
 

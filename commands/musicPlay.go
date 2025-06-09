@@ -48,7 +48,7 @@ func playCommand(ctx *models.Context, args map[string]string) {
 		ctx.Client.SeekChannels[ctx.GuildID] = make(chan int)
 
 	}
-
+	var stopWhenChecked bool = false
 	// Parse spotify to youtube
 	if handlers.ContainsSpotify(args["url"]) {
 		stype, sid, err := handlers.ParseSpotifyURL(args["url"])
@@ -56,22 +56,84 @@ func playCommand(ctx *models.Context, args map[string]string) {
 			ctx.Send("Error parsing spotify URL")
 			return
 		}
+		token, err := handlers.GetSpotifyAccessToken(ctx.Client.SpotifyID, ctx.Client.SpotifySecret)
+		if err != nil {
+			ctx.Send("Error while getting Spotify Auth Token.")
+			return
+		}
 
 		if stype == "track" {
 			title, artist, err := handlers.GetTrackTitleAndArtist(sid, token)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
+				ctx.Send(err.Error())
+				return
 			}
-			// TODO: search on yt, get first result, add to download queue
-		} else if stype == "playlist" {
-			results, err := handlers.GetPlaylistTitlesAndArtists(id, token)
+			query := fmt.Sprintf("%s - %s", title, artist)
+			ctx.Send("Grabbing first result for `" + query + "` on youtube.")
+			videoID, err := ctx.Client.SendSearchRequest(query)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
+				ctx.Send(err.Error())
+				return
 			}
+			args["url"] = fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoID)
+			// Continue as normal, will add the single youtube link to the download queue
+		} else if stype == "playlist" {
+			results, err := handlers.GetPlaylistTitlesAndArtists(sid, token)
+			if err != nil {
+				log.Println(err)
+				ctx.Send(err.Error())
+				return
+			}
+
+			ctx.Client.SetDownloadingBool(ctx.GuildID, true)
+			var isFirst bool = true
+			ctx.Send("Downloading...")
+
 			for _, track := range results {
-				// TODO: search on yt, get first result, add to download queue
+				query := fmt.Sprintf("%s - %s", track.Title, track.Artist)
+				ctx.Send("Grabbing first result for `" + query + "` on YouTube.")
+				videoID, err := ctx.Client.SendSearchRequest(query)
+				if err != nil {
+					log.Println(err)
+					ctx.Send(err.Error())
+					return
+				}
+				done := ctx.Client.DownloadQueue.Add(ctx, fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoID), ctx.GuildID)
+				if isFirst { // Start playing as soon as first download is done
+					isFirst = false
+					isDone := <-done
+					if isDone {
+						if !ctx.Client.IsPlaying[ctx.GuildID] {
+							voice, err := checks.GetBotVoiceChannel(ctx)
+							if err != nil {
+								fmt.Println(err)
+								ctx.Send("Error getting the voice channel")
+								return
+							}
+							ctx.Client.SetPlayingBool(ctx.GuildID, true)
+							ctx.Client.SendPlayToWS(args["url"], ctx.GuildID)
+							go handlers.PlayFromWS(
+								voice,
+								ctx,
+								ctx.Client.SongQueue[ctx.GuildID].Current(),
+								ctx.Client.StopChannels[ctx.GuildID],
+								ctx.Client.SkipChannels[ctx.GuildID],
+								ctx.Client.SeekChannels[ctx.GuildID],
+							)
+						}
+					} else if !isDone {
+						ctx.Send("Error during downloading, doing nothing.")
+					}
+				}
 			}
+			ctx.Client.SetDownloadingBool(ctx.GuildID, false)
+			stopWhenChecked = true
 		}
+	}
+	if stopWhenChecked {
+		return
 	}
 
 	// Download the youtube URL to a file)

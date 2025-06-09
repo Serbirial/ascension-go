@@ -62,7 +62,7 @@ type Ascension struct {
 	SpotifySecret string
 }
 
-// Exclusively used when clustering devices, will need to bridge IO of device running the bot and/or music server depending on setup.
+// Useful when when clustering, will need to bridge IO of device running the bot and/or music server depending on setup.
 func (bot *Ascension) SendDownloadDetached(url string) (*SongInfo, error) {
 	type DownloadRequest struct {
 		URL string `json:"url"`
@@ -95,6 +95,80 @@ func (bot *Ascension) SendDownloadDetached(url string) (*SongInfo, error) {
 
 	log.Printf("[DETACHED-DOWNLOADER] Successfully downloaded and received info: %s\n", song.Title)
 	return &song, nil
+}
+
+// SendSearchRequest sends a search query to the detached downloader and returns the YouTube video ID.
+func (bot *Ascension) SendSearchRequest(query string) (string, error) {
+	type SearchRequest struct {
+		Query string `json:"query"`
+	}
+	reqBody := SearchRequest{Query: query}
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		log.Println("[DETACHED-DOWNLOADER] Failed to marshal search request JSON:", err)
+		return "", err
+	}
+
+	resp, err := http.Post(bot.DownloaderUrl+"/search", "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		log.Println("[DETACHED-DOWNLOADER] Failed to POST search request:", err)
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[DETACHED-DOWNLOADER] Search server responded with status: %d\n", resp.StatusCode)
+		return "", errors.New("Download server returned non-OK status")
+	}
+
+	var result struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		log.Println("[DETACHED-DOWNLOADER] Failed to decode search response:", err)
+		return "", err
+	}
+
+	log.Printf("[DETACHED-DOWNLOADER] Search successful, got video ID: %s\n", result.ID)
+	return result.ID, nil
+}
+
+// SendGetRelatedRequest sends a related videos request to the detached downloader and returns a slice of video URLs.
+func (bot *Ascension) SendGetRelatedRequest(videoID string, limit int) ([]string, error) {
+	type RelatedRequest struct {
+		ID    string `json:"id"`
+		Limit int    `json:"limit"`
+	}
+	reqBody := RelatedRequest{
+		ID:    videoID,
+		Limit: limit,
+	}
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		log.Println("[DETACHED-DOWNLOADER] Failed to marshal related request JSON:", err)
+		return nil, err
+	}
+
+	resp, err := http.Post(bot.DownloaderUrl+"/related", "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		log.Println("[DETACHED-DOWNLOADER] Failed to POST related request:", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[DETACHED-DOWNLOADER] Download server responded with status: %d\n", resp.StatusCode)
+		return nil, errors.New("download server returned non-OK status")
+	}
+
+	var related []string
+	if err := json.NewDecoder(resp.Body).Decode(&related); err != nil {
+		log.Println("[DETACHED-DOWNLOADER] Failed to decode related response:", err)
+		return nil, err
+	}
+
+	log.Printf("[DETACHED-DOWNLOADER] Retrieved %d related videos\n", len(related))
+	return related, nil
 }
 
 func (bot *Ascension) ConnectToWS(url string, origin string, identifier string) *websocket.Conn {

@@ -113,6 +113,9 @@ func startWS() { // FIXME: recognize usage of detached downloader, meaning the I
 
 func startDownloaderServer() {
 	http.HandleFunc("/download", handlers.HandleDownloader)
+	http.HandleFunc("/search", handlers.HandleDownloaderSearch)
+	http.HandleFunc("/related", handlers.HandleDownloaderGetRelated)
+
 	log.Println("[DOWNLOADER] Running on :8183")
 	log.Fatal(http.ListenAndServe("0.0.0.0:8183", nil))
 }
