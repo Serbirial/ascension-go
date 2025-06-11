@@ -109,11 +109,9 @@ func (dq *DownloadQueue) downloaderLoop() {
 
 			ctx.Send(fmt.Sprintf("Queued: **%s** by **%s**", songInfo.Title, songInfo.Uploader))
 			// Send feedback to user who requested the download
-			if !ctx.Client.IsPlaying[ctx.GuildID] {
-				if req.Done != nil {
-					req.Done <- true
-					close(req.Done)
-				}
+			if req.Done != nil {
+				req.Done <- true
+				close(req.Done)
 			}
 			continue
 		} else {
