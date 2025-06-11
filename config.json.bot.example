@@ -2,6 +2,7 @@
   "BotTokenFilePath": "token.txt",
   "BotPrefix": "a!",
   "UseDCA": true,
+  "Standalone": false,
   "WSOnly": false,
   "DownloaderOnly": false,
   "StartProfiler": true,

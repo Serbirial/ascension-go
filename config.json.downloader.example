@@ -4,6 +4,7 @@
   "UseDCA": true,
   "WSOnly": false,
   "DownloaderOnly": true,
+  "Standalone": false,
   "StartProfiler": false,
   "DetachedDownloaderServer": true,
   "RemoteDownloaderURL": "http://localhost:8183",

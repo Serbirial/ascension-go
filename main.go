@@ -28,6 +28,7 @@ import (
 // Define a struct to hold the CLI arguments
 type CommandLineConfig struct {
 	ConfigFile       string
+	Standalone       bool
 	BotTokenFilePath string
 	BotPrefix        string
 
@@ -59,6 +60,8 @@ func parseFlags() CommandLineConfig {
 
 	// Bind command-line flags to struct fields
 	flag.StringVar(&cfg.ConfigFile, "config-file", "", "Path to a JSON file to load config values from (overrides other flags if present: see examples)")
+
+	flag.BoolVar(&cfg.Standalone, "standalone", true, "Set to false if clustering across multiple devices, this will tell the bot to run its own WS/Downloader server internally.")
 
 	flag.StringVar(&cfg.BotTokenFilePath, "token", "token.txt", "Path to txt file containing the token. Defaults to `token.txt`.")
 	flag.StringVar(&cfg.BotPrefix, "prefix", "a!", "The prefix the bot uses for commands. Defaults to `a!`.")
@@ -206,7 +209,15 @@ func main() {
 
 	if !config.WSOnly && !config.DownloaderOnly { // Dont launch the bot if in WS/Downloader server mode
 		go startBot()
-		log.Println("[CRITICAL] ATTENTION! YOU WILL NEED TO RUN THE MUSIC SERVER ALONGSIDE THE BOT!")
+		if config.Standalone {
+			go startWS()
+			go startDownloaderServer()
+			log.Println("[INFO] Running internal WS/Downloader servers.")
+		} else if !config.Standalone {
+			log.Println("[CRITICAL] ATTENTION! YOU WILL NEED TO RUN THE MUSIC SERVER ALONGSIDE THE BOT!")
+
+		}
+
 	}
 	if config.StartProfiler { // Launch the profiler if enabled
 		go startProfiler()

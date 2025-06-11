@@ -3,6 +3,7 @@
   "BotPrefix": "a!",
   "UseDCA": true,
   "WSOnly": true,
+  "Standalone": false,
   "DownloaderOnly": false,
   "StartProfiler": false,
   "DetachedDownloaderServer": true,
