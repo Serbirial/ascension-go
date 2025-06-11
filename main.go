@@ -4,6 +4,7 @@ package main
 // Make queue for downloads, which a goroutine reads from, downloads, and adds to queue all by itself to prevent any form of race horse
 
 import (
+	"encoding/json"
 	"flag"
 	"os"
 	"os/signal"
@@ -26,6 +27,7 @@ import (
 
 // Define a struct to hold the CLI arguments
 type CommandLineConfig struct {
+	ConfigFile       string
 	BotTokenFilePath string
 	BotPrefix        string
 
@@ -56,6 +58,8 @@ func parseFlags() CommandLineConfig {
 	var cfg CommandLineConfig
 
 	// Bind command-line flags to struct fields
+	flag.StringVar(&cfg.ConfigFile, "config-file", "", "Path to a JSON file to load config values from (overrides other flags if present: see examples)")
+
 	flag.StringVar(&cfg.BotTokenFilePath, "token", "token.txt", "Path to txt file containing the token. Defaults to `token.txt`.")
 	flag.StringVar(&cfg.BotPrefix, "prefix", "a!", "The prefix the bot uses for commands. Defaults to `a!`.")
 	flag.BoolVar(&cfg.UseDCA, "useDCA", false, "Tells the bot to use DCA audio only (Bypasses usage of WS server)")
@@ -76,6 +80,18 @@ func parseFlags() CommandLineConfig {
 	// Parse the flags
 	log.Println("[CLI] Parsing arguments.")
 	flag.Parse()
+	if cfg.ConfigFile != "" {
+		log.Println("[CLI] Loading config from JSON file:", cfg.ConfigFile)
+		data, err := os.ReadFile(cfg.ConfigFile)
+		if err != nil {
+			log.Fatalf("[CLI] Failed to read config file: %v", err)
+		}
+		var jsonCfg CommandLineConfig
+		if err := json.Unmarshal(data, &jsonCfg); err != nil {
+			log.Fatalf("[CLI] Failed to parse config file: %v", err)
+		}
+		cfg = jsonCfg
+	}
 	log.Println("[CLI] Bot Token File: " + cfg.BotTokenFilePath)
 	log.Println("[CLI] Spotify ID: " + cfg.SpotifyID)
 	log.Println("[CLI] Spotify Secret: " + cfg.SpotifySecret)

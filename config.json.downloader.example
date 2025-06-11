@@ -1,0 +1,14 @@
+{
+  "BotTokenFilePath": "token.txt",
+  "BotPrefix": "a!",
+  "UseDCA": true,
+  "WSOnly": false,
+  "DownloaderOnly": true,
+  "StartProfiler": false,
+  "DetachedDownloaderServer": true,
+  "RemoteDownloaderURL": "http://localhost:8183",
+  "RemoteWSURL": "ws://localhost:8182/ws",
+  "RemoteWSOrigin": "http://localhost/",
+  "SpotifyID": "your_id",
+  "SpotifySecret": "your_secret"
+}
